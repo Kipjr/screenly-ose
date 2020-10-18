@@ -13,7 +13,13 @@ system-upgrade
 ### FUNCTIONS
 ###
 
-
+regex_replace_infile () {
+  #
+  # path_file find replace
+  #
+  sed -i 's/$2/$3/g' $1
+  Copying "Replace $2 with $3 in $1"
+}
 
 copy_file () {
  # source target owner group flags comment
@@ -40,8 +46,52 @@ copy_file () {
   fi
 }
 
-
-
+https://wiki.bash-hackers.org/howto/getopts_tutorial
+copy_file2 () {
+ # source target owner group flags comment
+ #
+ #
+  while getopts ":s:t:o:g:p:c:f:" opt; do
+    case $opt in
+      s) 
+        source="$OPTARG"
+        echo "-s was triggered!" >&2
+        ;;
+      t) 
+        target="$OPTARG"
+        echo "-t was triggered!" >&2
+        ;;
+      o) 
+        owner="$OPTARG"
+        echo "-o was triggered!" >&2
+        ;;
+      g) 
+        group="$OPTARG"
+        echo "-g was triggered!" >&2
+        ;;
+      p) 
+        flags="$OPTARG"
+        echo "-p was triggered!" >&2
+        ;;
+      c) 
+        comment="$OPTARG"
+        echo "-c was triggered!" >&2
+        ;;
+      f) 
+        force="$OPTARG"
+        echo "-f was triggered!" >&2
+        ;;
+      \?) 
+        echo "Invalid option -$OPTARG" >&2 
+        ;;
+      :)
+       echo "Option -$OPTARG requires an argument." >&2
+       ;;
+    esac
+    printf "Argument is %s\n" "$comment"
+  done
+ 
+}
 
 
 
@@ -372,21 +422,12 @@ copy_file "10-serverflags.conf"  "/usr/share/X11/xorg.conf.d/10-serverflags.conf
     - .config
     - .config/uzbl
 
-- name: Copy Screenly default config
-  copy:
-    owner: pi
-    group: pi
-    src: screenly.conf
-    dest: /home/pi/.screenly/screenly.conf
-    force: no
+#do not force
+copy_file "screenly.conf"  "/home/pi/.screenly/screenly.conf" pi pi 0600 "Copy Screenly default config"
 
-- name: Copy Screenly default assets file
-  copy:
-    owner: pi
-    group: pi
-    src: default_assets.yml
-    dest: /home/pi/.screenly/default_assets.yml
-    force: yes
+
+
+copy_file "default_assets.yml"  "/home/pi/.screenly/default_assets.yml" pi pi 0600 "Copy Screenly default assets file"
 
 - name: Remove deprecated parameter "listen"
   lineinfile:
@@ -394,32 +435,16 @@ copy_file "10-serverflags.conf"  "/usr/share/X11/xorg.conf.d/10-serverflags.conf
     state: absent
     dest: /home/pi/.screenly/screenly.conf
 
-- name: Copy in GTK config
-  copy:
-    owner: pi
-    group: pi
-    src: gtkrc-2.0
-    dest: /home/pi/.gtkrc-2.0
 
-- name: Copy in UZBL config
-  copy:
-    owner: pi
-    group: pi
-    src: uzbl-config
-    dest: /home/pi/.config/uzbl/config-screenly
+copy_file "gtkrc-2.0"  " /home/pi/.gtkrc-2.0" pi pi 0600 "Copy in GTK config"
+copy_file "uzbl-config"  "/home/pi/.config/uzbl/config-screenly" pi pi 0600 "Copy in UZBL config"
 
-- name: Install pip dependencies
-  pip:
-    requirements: /home/pi/screenly/requirements/requirements.txt
-    extra_args: "--no-cache-dir --upgrade"
+echo "Install pip dependencies"
+pip install --requirement /home/pi/screenly/requirements/requirements.txt --no-cache-dir --upgrade
 
-- name: Create default assets database if does not exists
-  copy:
-    owner: pi
-    group: pi
-    src: screenly.db
-    dest: /home/pi/.screenly/screenly.db
-    force: no
+
+#do not force
+copy_file "screenly.db"  "/home/pi/.screenly/screenly.db" pi pi 0600 "Create default assets database if does not exists"
 
 - name: Run database migration
   become_user: pi
@@ -629,10 +654,9 @@ copy_file "plymouth-quit.service"  "/lib/systemd/system/plymouth-quit.service" r
     - not resin_wifi_version_file_exist
     - manage_network|bool == true
 
-- name: Copy wifi-connect systemd unit
-  copy:
-    src: "wifi-connect.service"
-    dest: "/etc/systemd/system/wifi-connect.service"
+copy_file "wifi-connect.service"  "/etc/systemd/system/wifi-connect.service" root root 0644 "Copy wifi-connect systemd unit"
+
+
 
 - name: Enable wifi-connect systemd service
   systemd:
@@ -784,18 +808,10 @@ copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 
     state: absent
   tags:
     - enable-ssl
+    
+copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
+service nginx restart
 
-- name: Installs nginx config
-  copy:
-    src: nginx.conf
-    dest:  /etc/nginx/sites-enabled/screenly.conf
-    mode: 644
-    owner: root
-    group: root
-  notify:
-    - restart-nginx
-  tags:
-    - enable-ssl
 
 copy_file "files/screenly.crt"  "/etc/ssl/screenly.crt" root root 0600 "Installs self-signed certificates / crt"
 copy_file "files/screenly.key"  "/etc/ssl/screenly.key" root root 0600 "Installs self-signed certificates / key"
