@@ -1,16 +1,29 @@
+#!/bin/bash
+
+
+###
+### VARS
+###
 
 skip-tags 
 enable-ssl
 system-upgrade
 
+###
+### FUNCTIONS
+###
 
 
 
 copy_file () {
- # source target owner group flags
+ # source target owner group flags comment
  #
  #
-  str="Copying $1 to $2"
+  str=""
+  if [ ! -z $6 ]; then
+    str+="$6\n"
+  fi
+  str+="Copying $1 to $2"
   if [ ! -z $1 ] && [ ! -z $2 ]; then
     cp $1 $2 -f 
     if [ ! -z $3 ] && [ ! -z $4 ];then 
@@ -26,6 +39,9 @@ copy_file () {
     echo "Not enough arguments"
   fi
 }
+
+
+
 
 
 
@@ -284,37 +300,12 @@ apt-get dist-upgrade -y
     name: supervisor
     state: absent
 
-- name: Copy in rc.local
-  copy:
-    src: rc.local
-    dest: /etc/rc.local
-    mode: 0755
-    owner: root
-    group: root
+copy_file "rc.local"  "/etc/rc.local" root root 0755 "Copy in rc.local"
+copy_file "01_nodoc"  "/etc/dpkg/dpkg.cfg.d/01_nodoc" root root 0644 "Copy in 01_nodoc"
+copy_file "10-evdev.conf"  "/usr/share/X11/xorg.conf.d/10-evdev.conf" root root 0644 "Copy in evdev"
+copy_file "10-serverflags.conf"  "/usr/share/X11/xorg.conf.d/10-serverflags.conf" root root 0644 "Disable DPMS"
 
-- name: Copy in 01_nodoc
-  copy:
-    src: 01_nodoc
-    dest: /etc/dpkg/dpkg.cfg.d/01_nodoc
-    mode: 0644
-    owner: root
-    group: root
 
-- name: Copy in evdev
-  copy:
-    src: 10-evdev.conf
-    dest: /usr/share/X11/xorg.conf.d/10-evdev.conf
-    mode: 0644
-    owner: root
-    group: root
-
-- name: Disable DPMS
-  copy:
-    src: 10-serverflags.conf
-    dest: /usr/share/X11/xorg.conf.d/10-serverflags.conf
-    mode: 0644
-    owner: root
-    group: root
 
 - name: Clear out X11 configs (disables touchpad and other unnecessary things)
   file:
@@ -456,34 +447,12 @@ apt-get dist-upgrade -y
     group: root
     force: yes
 
-- name: Copy screenly_overrides
-  copy:
-    src: screenly_overrides
-    dest: /etc/sudoers.d/screenly_overrides
-    mode: 0440
-    owner: root
-    group: root
 
-- name: Copy screenly_usb_assets.sh
-  copy:
-    src: screenly_usb_assets.sh
-    dest: /usr/local/bin/screenly_usb_assets.sh
-    mode: 0755
-    owner: root
-    group: root
 
-- name: Installs autoplay udev rule
-  copy:
-    src: 50-autoplay.rules
-    dest: /etc/udev/rules.d/50-autoplay.rules
-    mode: 644
-    owner: root
-    group: root
-
-- name: Copy systemd-udevd service
-  copy:
-    src: /lib/systemd/system/systemd-udevd.service
-    dest: /etc/systemd/system/systemd-udevd.service
+copy_file "files/screenly_overrides"  "/etc/sudoers.d/screenly_overrides" root root 0440 "Copy screenly_overrides"
+copy_file "files/screenly_usb_assets.sh"  "/usr/local/bin/screenly_usb_assets.sh" root root 0755 "Copy screenly_usb_assets.sh"
+copy_file "50-autoplay.rules"  "/etc/udev/rules.d/50-autoplay.rules" root root 0644 "Installs autoplay udev rule"
+copy_file "/lib/systemd/system/systemd-udevd.service"  "/etc/systemd/system/systemd-udevd.service" root root 0740 "Copy systemd-udevd service"
 
 - name: Configure systemd-udevd service
   lineinfile:
@@ -497,21 +466,10 @@ apt-get dist-upgrade -y
     dest: "/etc/systemd/system/{{ item }}"
   with_items: "{{ screenly_systemd_units }}"
 
-- name: Copy plymouth-quit-wait.service
-  copy:
-    src: plymouth-quit-wait.service
-    dest: /lib/systemd/system/plymouth-quit-wait.service
-    mode: 0644
-    owner: root
-    group: root
 
-- name: Copy plymouth-quit.service
-  copy:
-    src: plymouth-quit.service
-    dest: /lib/systemd/system/plymouth-quit.service
-    mode: 0644
-    owner: root
-    group: root
+copy_file "plymouth-quit-wait.service"  "/lib/systemd/system/plymouth-quit-wait.service" root root 0644 "Copy plymouth-quit-wait.service"
+copy_file "plymouth-quit.service"  "/lib/systemd/system/plymouth-quit.service" root root 0644 "Copy plymouth-quit.service"
+
 
 - name: Enable screenly systemd services
   command: systemctl enable {{ item }} chdir=/etc/systemd/system
@@ -785,13 +743,8 @@ apt-get dist-upgrade -y
     path: /etc/nginx/sites-enabled/default
     state: absent
 
-- name: Installs nginx config
-  copy:
-    src: nginx.conf
-    dest:  /etc/nginx/sites-enabled/screenly.conf
-    mode: 644
-    owner: root
-    group: root
+
+copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
 
 - name: Modifies screenly-web service to only listen on localhost
   lineinfile:
@@ -844,19 +797,8 @@ apt-get dist-upgrade -y
   tags:
     - enable-ssl
 
-- name: Installs self-signed certificates
-  copy:
-    src: "{{ item }}"
-    dest: "/etc/ssl/{{ item }}"
-    mode: 0600
-    owner: root
-    group: root
-    force: no
-  with_items:
-    - screenly.crt
-    - screenly.key
-  tags:
-    - enable-ssl
+copy_file "files/screenly.crt"  "/etc/ssl/screenly.crt" root root 0600 "Installs self-signed certificates / crt"
+copy_file "files/screenly.key"  "/etc/ssl/screenly.key" root root 0600 "Installs self-signed certificates / key"
 
 - name: Turn on the ssl mode
   lineinfile:
@@ -892,22 +834,5 @@ apt-get dist-upgrade -y
     
     
     - tools
-    
-    
-    
-    - name: Copy ngrok binary
-  copy:
-    src: ngrok
-    dest: /usr/local/bin/
-    mode: 0755
-    owner: root
-    group: root
-
-- name: Installs nginx config
-  copy:
-    src: nginx.conf
-    dest:  /etc/nginx/sites-enabled/screenly_assets.conf
-    mode: 644
-    owner: root
-    group: root
-
+copy_file "files/ngrok"  "/usr/local/bin/" root root 0755 "Copy ngrok binary"
+copy_file "files/nginx.conf"  "/etc/nginx/sites-enabled/screenly_assets.conf" root root 0644 "Installs nginx config"
