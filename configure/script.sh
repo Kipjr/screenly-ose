@@ -1,3 +1,69 @@
+
+skip-tags 
+enable-ssl
+system-upgrade
+
+
+
+
+copy_file () {
+ # source target owner group flags
+ #
+ #
+  str="Copying $1 to $2"
+  if [ ! -z $1 ] && [ ! -z $2 ]; then
+    cp $1 $2 -f 
+    if [ ! -z $3 ] && [ ! -z $4 ];then 
+      chown $3:$4 $2
+      str+=" as $3:$4"
+    fi
+    if [ ! -z $5 ];then 
+      chmod $5 $2
+      str+=" with $5 flags"
+    fi
+    echo "$str"
+  else 
+    echo "Not enough arguments"
+  fi
+}
+
+
+
+
+
+
+
+DIR="/etc/httpd/"
+if [ -d "$DIR" ]; then
+  ### Take action if $DIR exists ###
+  echo "Installing config files in ${DIR}..."
+else
+  ###  Control will jump here if $DIR does NOT exists ###
+  echo "Error: ${DIR} not found. Can not continue."
+  exit 1
+fi
+
+
+
+#!/bin/bash
+dldir="$HOME/linux/5.x"
+_out="/tmp/out.$$"
+ 
+# Build urls
+url="some_url/file.tar.gz"
+file="${url##*/}"
+ 
+### Check for dir, if not found create it using the mkdir ##
+[ ! -d "$dldir" ] && mkdir -p "$dldir"
+
+
+
+FILE=/etc/resolv.conf
+if [ -f "$FILE" ]; then
+    echo "$FILE exists."
+fi
+
+
 - name: Install Screenly
   hosts: all
   user: pi
@@ -23,8 +89,8 @@
     - name: restart-x-server
       command: "systemctl restart {{ item }}"
       with_items:
-      - X.service
-      - matchbox.service
+	X.service
+	matchbox.service
 
     - name: restart-screenly-viewer
       command: systemctl restart screenly-viewer.service
@@ -177,63 +243,41 @@
     update_cache: yes
   when: not cc1plus_exist
 
-- name: Install Screenly dependencies
-  apt:
-    name:
-      - console-data
-      - libffi-dev
-      - libssl-dev
-      - matchbox
-      - omxplayer
-      - python-dev
-      - python-gobject
-      - python-netifaces
-      - python-simplejson
-      - redis-server
-      - rpi-update
-      - sqlite3
-      - systemd
-      - uzbl
-      - x11-xserver-utils
-      - xserver-xorg
-    state: latest
+apt-get install -y \
+  console-data \
+  libffi-dev \
+  libssl-dev \
+  matchbox \
+  omxplayer \
+  python-dev \
+  python-gobject \
+  python-netifaces \
+  python-simplejson \
+  redis-server \
+  rpi-update \
+  sqlite3 \
+  systemd \
+  uzbl \ 
+  x11-xserver-utils \
+  xserver-xorg \
 
-- name: Install systemd-sysv on Wheezy
-  command: bash -c 'echo "Yes, do as I say!" | apt-get install -y --force-yes systemd-sysv'
-  when: ansible_distribution_release == "wheezy"
 
-- name: Remove deprecated apt dependencies
-  apt:
-    name:
-      - supervisor
-      - lightdm
-      - lightdm-gtk-greeter
-      - dphys-swapfile
-      - rabbitmq-server
-    state: absent
-    
-- name: Remove cups/printing related packages
-  apt:
-    name:
-      - cups
-      - cups-browsed
-      - cups-client
-      - cups-common
-      - cups-daemon
-      - cups-server-common
-    state: absent
+apt-get purge -y 
+	visor \
+	lightdm \
+	lightdm-gtk-greeter \
+	dphys-swapfile \
+	rabbitmq-server
+	cups \
+	cups-browsed \
+	cups-client \
+	cups-common \
+	cups-daemon \
+	cups-server-common
 
-- name: Perform system upgrade
-  apt:
-    upgrade: dist
-  tags:
-    - system-upgrade
+apt-get autoremove -y
+apt-get dist-upgrade -y
 
-- name: Clean up unused packages
-  apt:
-    autoremove: yes
-  tags:
-    - system-upgrade
 
 - name: Remove deprecated pip dependencies
   pip:
@@ -653,7 +697,7 @@
 - name: Installs dependencies (Jessie)
   apt:
     name:
-      - fbi
+	fbi
   when: ansible_distribution_major_version|int <= 7
 
 - name: Copies in splash screen
@@ -693,8 +737,8 @@
 - name: Installs dependencies (not Jessie)
   apt:
     name:
-      - plymouth
-      - pix-plym-splash
+	plymouth
+	pix-plym-splash
   when: ansible_distribution_major_version|int > 7
 
 - name: Copies plymouth theme
