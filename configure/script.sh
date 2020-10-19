@@ -14,11 +14,15 @@ system-upgrade
 ###
 
 regex_replace_infile () {
-  #
-  # path_file find replace
-  #
-  sed -i 's/$2/$3/g' $1
-  Copying "Replace $2 with $3 in $1"
+ #
+ # path_file find replace comment
+ #
+  cat $1 | perl -pe "s/$2/$3/" > /tmp/regex.tmp
+  mv /tmp/regex.tmp  $1
+  if [[ ! -z $4 ]];then 
+    echo $4
+  fi
+  echo -e "\tReplace '$2' with '$3' in $1"
 }
 
 copy_file () {
@@ -27,11 +31,12 @@ copy_file () {
  #
   str=""
   if [ ! -z $6 ]; then
-    str+="$6\n"
+    echo $6
   fi
   str+="Copying $1 to $2"
   if [ ! -z $1 ] && [ ! -z $2 ]; then
-    cp $1 $2 -f 
+    #make this -n -f optional based on args
+    cp -n $1 $2 -f 
     if [ ! -z $3 ] && [ ! -z $4 ];then 
       chown $3:$4 $2
       str+=" as $3:$4"
@@ -40,7 +45,7 @@ copy_file () {
       chmod $5 $2
       str+=" with $5 flags"
     fi
-    echo "$str"
+    echo -e "\t$str"
   else 
     echo "Not enough arguments"
   fi
@@ -162,7 +167,11 @@ fi
       command: systemctl restart screenly-viewer.service
 
   roles:
-    - system
+  
+  
+  
+  
+###  system
     
     
   
@@ -176,49 +185,31 @@ fi
 
 # We need custom handling for BerryBoot as it lacks `/boot`.
 # To detect this, the image creates `/etc/berryboot`.
-- stat:
-    path: /etc/berryboot
-  register: berryboot
+DIR="/etc/berryboot"
+if [ -d "$DIR" ]; then
+  ### Take action if $DIR exists ###
+  echo "Detected BerryBoot installation. Skipping some steps."
+  
+else
+  ###  Control will jump here if $DIR does NOT exists ###
+  echo "Not BerryBoot. Can continue.\nBacking up /boot/config.txt"
+  cp /boot/config.txt /boot/config.txt.bak
+  regex_replace_infile /boot/config.txt ^framebuffer_depth=[0-9]+$ framebuffer_depth=32 'Make sure we have proper framebuffer depth'
+  regex_replace_infile /boot/config.txt ^framebuffer_ignore_alpha=[0-9]+$ framebuffer_ignore_alpha=1 'Fix framebuffer bug'
+  echo "Backup kernel boot args"
+  cp -n /boot/cmdline.txt /boot/cmdline.txt.orig
+  regex_replace_infile /boot/cmdline.txt '(^(?!$)((?!splash).)*$)' '\1 splash' 'For splash screen using Plymouth'
+  regex_replace_infile /boot/cmdline.txt  '(^(?!$)((?!vt.global_cursor_default=0).)*$)' '\1 vt.global_cursor_default=0' 'Remove blinking cursor'
+  regex_replace_infile /boot/cmdline.txt  '(^(?!$)((?!quiet init=/lib/systemd/systemd).)*$)' '\1 quiet init=/lib/systemd/systemd' 'Use Systemd as init and quiet boot process'
+  regex_replace_infile /boot/cmdline.txt  '(^(?!$)((?!net\.ifnames=0).)*$)' '\1 net.ifnames=0' 'ethN/wlanN names for interfaces'
+  
+fi
 
-- set_fact: is_berryboot="{{berryboot.stat.exists}}"
-
-- debug:
-    msg: "Detected BerryBoot installation. Skipping some steps."
-  when: is_berryboot
-
-- name: Check NOOBS
-  command: cat /boot/config.txt
-  register: config_txt
-  tags:
-    - touches_boot_partition
 
 
-- name: Make sure we have proper framebuffer depth
-  lineinfile:
-    dest: /boot/config.txt
-    regexp: ^framebuffer_depth=
-    line: framebuffer_depth=32
-  when: not is_berryboot
-  tags:
-    - touches_boot_partition
 
-- name: Fix framebuffer bug
-  lineinfile:
-    dest: /boot/config.txt
-    regexp: ^framebuffer_ignore_alpha=
-    line: framebuffer_ignore_alpha=1
-  when: not is_berryboot
-  tags:
-    - touches_boot_partition
 
-- name: Backup kernel boot args
-  copy:
-    src: /boot/cmdline.txt
-    dest: /boot/cmdline.txt.orig
-    force: no
-  when: not is_berryboot
-  tags:
-    - touches_boot_partition
+
 
 - debug:
     msg: "Use cmdline.txt.orig for boot parameters (don't remove this file)"
@@ -232,39 +223,11 @@ fi
   tags:
     - touches_boot_partition
 
-- name: For splash screen using Plymouth
-  replace:
-    dest: /boot/cmdline.txt
-    regexp: (^(?!$)((?!splash).)*$)
-    replace: \1 splash
-  when: not is_berryboot and ansible_distribution_major_version|int >= 7
 
-- name: Remove blinking cursor
-  replace:
-    dest: /boot/cmdline.txt
-    regexp: (^(?!$)((?!vt.global_cursor_default=0).)*$)
-    replace: \1 vt.global_cursor_default=0
-  when: not is_berryboot and ansible_distribution_major_version|int >= 7
-  tags:
-    - touches_boot_partition
 
-- name: Use Systemd as init and quiet boot process
-  replace:
-    dest: /boot/cmdline.txt
-    regexp: (^(?!$)((?!quiet init=/lib/systemd/systemd).)*$)
-    replace: \1 quiet init=/lib/systemd/systemd
-  when: not is_berryboot
-  tags:
-    - touches_boot_partition
 
-- name: ethN/wlanN names for interfaces
-  replace:
-    dest: /boot/cmdline.txt
-    regexp: (^(?!$)((?!net\.ifnames=0).)*$)
-    replace: \1 net.ifnames=0
-  when: not is_berryboot
-  tags:
-    - touches_boot_partition
+
+
 
 # Sometimes in some packages there are no necessary files.
 # They are required to install pip dependencies.
@@ -377,7 +340,7 @@ copy_file "10-serverflags.conf"  "/usr/share/X11/xorg.conf.d/10-serverflags.conf
     
     
     
-    - rpi-update
+###  rpi-update
     
     
     
@@ -408,7 +371,7 @@ copy_file "10-serverflags.conf"  "/usr/share/X11/xorg.conf.d/10-serverflags.conf
 
     
     
-    - screenly
+###  screenly
     
     
     - name: Ensure folders exist
@@ -428,14 +391,7 @@ copy_file "screenly.conf"  "/home/pi/.screenly/screenly.conf" pi pi 0600 "Copy S
 
 
 copy_file "default_assets.yml"  "/home/pi/.screenly/default_assets.yml" pi pi 0600 "Copy Screenly default assets file"
-
-- name: Remove deprecated parameter "listen"
-  lineinfile:
-    regexp: '^.*listen.*'
-    state: absent
-    dest: /home/pi/.screenly/screenly.conf
-
-
+regex_replace_infile /home/pi/.screenly/screenly.conf '^.*listen.*' '' 'Remove deprecated parameter "listen"'
 copy_file "gtkrc-2.0"  " /home/pi/.gtkrc-2.0" pi pi 0600 "Copy in GTK config"
 copy_file "uzbl-config"  "/home/pi/.config/uzbl/config-screenly" pi pi 0600 "Copy in UZBL config"
 
@@ -479,11 +435,7 @@ copy_file "files/screenly_usb_assets.sh"  "/usr/local/bin/screenly_usb_assets.sh
 copy_file "50-autoplay.rules"  "/etc/udev/rules.d/50-autoplay.rules" root root 0644 "Installs autoplay udev rule"
 copy_file "/lib/systemd/system/systemd-udevd.service"  "/etc/systemd/system/systemd-udevd.service" root root 0740 "Copy systemd-udevd service"
 
-- name: Configure systemd-udevd service
-  lineinfile:
-    dest: /etc/systemd/system/systemd-udevd.service
-    regexp: '^MountFlags='
-    line: 'MountFlags=shared'
+regex_replace_infile /etc/systemd/system/systemd-udevd.service '^MountFlags=.+$' 'MountFlags=shared' 'Configure systemd-udevd service'
 
 - name: Copy screenly systemd units
   copy:
@@ -503,7 +455,7 @@ copy_file "plymouth-quit.service"  "/lib/systemd/system/plymouth-quit.service" r
     
     
     
-    - network
+###  network
     
     
     
@@ -548,38 +500,23 @@ copy_file "plymouth-quit.service"  "/lib/systemd/system/plymouth-quit.service" r
 - debug:
     msg: "Manage network: {{ manage_network }}"
 
-- name: Add pi user to Identity
-  replace:
-    regexp: '^Identity=.*'
-    replace: 'Identity=unix-group:netdev;unix-group:sudo:pi'
-    dest: /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla
-  when:
-    - manage_network|bool == true
+if [[ $manage_network==true ]];then
+  regex_replace_infile /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla '^Identity=.*' 'Identity=unix-group:netdev;unix-group:sudo:pi' 'Add pi user to Identity'
+  regex_replace_infile /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla '^ResultAny=.*' 'ResultAny=yes' 'Set ResultAny to yes'
+  echo "Copy org.freedesktop.NetworkManager.pkla to 50-local.d"
+  cp -f /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla /etc/polkit-1/localauthority/50-local.d
+  echo "Disable dhcpcd"
+  systemctl disable dhcpcd
+  echo "Activate NetworkManager"
+  systemctl enable NetworkManager
 
-- name: Set ResultAny to yes
-  replace:
-    regexp: '^ResultAny=.*'
-    replace: 'ResultAny=yes'
-    dest: /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla
-  when:
-    - manage_network|bool == true
+fi
 
-- name: Copy org.freedesktop.NetworkManager.pkla to 50-local.d
-  command: cp -f /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla /etc/polkit-1/localauthority/50-local.d
-  when:
-    - manage_network|bool == true
 
-- name: Disable dhcpcd
-  command: systemctl disable dhcpcd
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - manage_network|bool == true
 
-- name: Activate NetworkManager
-  command: systemctl enable NetworkManager
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - manage_network|bool == true
+
+
+
 
 - name: Check if resin-wifi-connect required version exist
   stat:
@@ -671,7 +608,7 @@ copy_file "wifi-connect.service"  "/etc/systemd/system/wifi-connect.service" roo
 
 
 
-    - splashscreen
+###  splashscreen
     
    ---
 
@@ -745,7 +682,7 @@ copy_file "wifi-connect.service"  "/etc/systemd/system/wifi-connect.service" roo
  
     
     
-    - nginx
+###  nginx
     
     
     ---
@@ -780,7 +717,7 @@ copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 
     
     
     
-    - ssl
+###  ssl
     
     
   ---
@@ -849,6 +786,6 @@ copy_file "files/screenly.key"  "/etc/ssl/screenly.key" root root 0600 "Installs
   
     
     
-    - tools
+###  tools
 copy_file "files/ngrok"  "/usr/local/bin/" root root 0755 "Copy ngrok binary"
 copy_file "files/nginx.conf"  "/etc/nginx/sites-enabled/screenly_assets.conf" root root 0644 "Installs nginx config"
