@@ -534,30 +534,13 @@ fi
   register: config
 
 - set_fact: no_ssl="{{config.stdout.find('use_ssl = True') == -1}}"
-
-- name: Installs Nginx
-  apt:
-    name: nginx-light
-    state: present
-    update_cache: yes
-
-- name: Cleans up default config
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-
-
+echo "Install nginx-light"
+sudo apt-get install nginx-light -y
+echo "Cleans up default config"
+sudo rm /etc/nginx/sites-enabled/default
 copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
-
-- name: Modifies screenly-web service to only listen on localhost
-  lineinfile:
-    regexp: '^.*LISTEN.*'
-    state: absent
-    dest: /etc/systemd/system/screenly-web.service
-  when: no_ssl
-
-    
-    
+regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '' 'Modifies screenly-web service to only listen on localhost'
+  
     
 ###  ssl
     
@@ -573,59 +556,20 @@ copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 
   tags:
     - enable-ssl
 
-- name: Installs Nginx
-  apt:
-    name: nginx-light
-    state: present
-    update_cache: yes
-  tags:
-    - enable-ssl
-
-- name: Cleans up default config
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-  tags:
-    - enable-ssl
-    
+echo "Install nginx-light"
+sudo apt-get install nginx-light -y
+echo "Cleans up default config"
+sudo rm /etc/nginx/sites-enabled/default  
 copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
 service nginx restart
-
-
 copy_file "files/screenly.crt"  "/etc/ssl/screenly.crt" root root 0600 "Installs self-signed certificates / crt"
 copy_file "files/screenly.key"  "/etc/ssl/screenly.key" root root 0600 "Installs self-signed certificates / key"
-
-- name: Turn on the ssl mode
-  lineinfile:
-    dest: /home/pi/.screenly/screenly.conf
-    insertafter: '^.*database.*'
-    regexp: '^.*database.*;'
-    line: 'use_ssl = True'
-  tags:
-    - enable-ssl
-  when: no_use_ssl_parameter
-
-- name: Turns on the ssl mode
-  replace:
-    replace: 'use_ssl = True'
-    regexp: '^.*use_ssl.*'
-    dest: /home/pi/.screenly/screenly.conf
-  tags:
-    - enable-ssl
-  when: not no_use_ssl_parameter
-
-- name: Modifies screenly-web service to only listen on localhost
-  lineinfile:
-    regexp: '^.*LISTEN.*'
-    state: absent
-    dest: /etc/systemd/system/screenly-web.service
-  notify:
-    - reload systemctl
-    - restart-screenly-websocket_server_layer
-    - restart-screenly-server
-  tags:
-    - enable-ssl
-  
+regex_replace_infile "/home/pi/.screenly/screenly.conf" '^.*database.*;' '^.*database.*;\nuse_ssl = True' 'Turns on the ssl mode'
+regex_replace_infile "/home/pi/.screenly/screenly.conf" '^.*use_ssl.*' 'use_ssl = True' 'Turns on the ssl mode'
+regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '' 'Modifies screenly-web service to only listen on localhost'
+sudo systemctl daemon-reload
+systemctl restart screenly-websocket_server_layer.service
+systemctl restart screenly-web.service
     
     
 ###  tools
