@@ -32,11 +32,11 @@ system-upgrade
 
 os=cat /etc/os-release
 
-ID = cat /etc/os-release | grep ID | cut -d= -f2-
-ID_LIKE = cat /etc/os-release | grep ID_LIKE | cut -d= -f2-
-VERSION_ID = cat /etc/os-release | grep VERSION_ID | cut -d= -f2-
-VERSION_CODENAME = cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2-
-MACHINE=uname -m
+ID=$(cat /etc/os-release | grep ID | cut -d= -f2-)
+ID_LIK=$(cat /etc/os-release | grep ID_LIKE | cut -d= -f2-)
+VERSION_ID=$(cat /etc/os-release | grep VERSION_ID | cut -d= -f2-)
+VERSION_CODENAME=$(cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2-)
+MACHINE=$(uname -m)
 ASSETS="/home/pi/screenly_assets"
 SCREENLY_CONFIG="/home/pi/.Screenly"
 SCREENLY_INSTALLED=[[ -d $ASSETS ]] && [[ -d $SCREENLY_CONFIG ]]
