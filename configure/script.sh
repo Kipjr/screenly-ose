@@ -140,37 +140,6 @@ copy_file2 () {
 
 
 
-service_restart () {
- # service comment 
- #
- #
-  while getopts ":s:c:" opt; do
-    case $opt in
-      s) 
-        service="$OPTARG"
-        ;;
-      c) 
-        comment="$OPTARG"
-        ;;
-      \?) 
-        echo "Invalid option -$OPTARG" >&2 
-        ;;
-      *)
-       echo "Option -$OPTARG requires an argument." >&2
-       ;;
-    esac
-	if [[ -z $service ]]; then
-	    systemctl restart $service 
-	    if [[ -z $comment ]]; then
-    		echo "$comment"
-		fi
-	fi
-  done
- 
-}
-
-
-
 
 
 DIR="/etc/httpd/"
