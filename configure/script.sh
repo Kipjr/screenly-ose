@@ -1,5 +1,25 @@
 #!/bin/bash
 
+# read the options
+TEMP=`getopt -o f:s::d:a::  "$@"`
+eval set -- "$TEMP"
+
+# extract options and their arguments into variables.
+while true ; do
+    case "$1" in
+        -f)
+            a=$2 ; shift 2 ;;
+        -s)
+            b='.' ; shift 2 ;;
+        -d)
+            c=$2 ; shift 2;;
+        -a)
+        *) echo "Internal error!" ; exit 1 ;;
+    esac
+done
+
+# Now take action
+echo "$action file $fileName from $sourceDir to $destinationDir"
 
 ###
 ### VARS
@@ -11,9 +31,18 @@ system-upgrade
 
 
 os=cat /etc/os-release
-os1=lsb_release -a
+NAME="Ubuntu"
+ID=ubuntu
+ID_LIKE=debian
+VERSION_ID="16.04"
+VERSION_CODENAME=xenial
+UBUNTU_CODENAME=xenial
+
+
+
+
 sa="/home/pi/screenly_assets"
-sc="/home/pi/.Screenly
+sc="/home/pi/.Screenly"
 screenly=[[ -d $sc ]] && [[ -d $sa ]]
 screenlyd=docker image ls | grep screenly
 
@@ -108,6 +137,37 @@ copy_file2 () {
 }
 
 
+
+
+
+service_restart () {
+ # service comment 
+ #
+ #
+  while getopts ":s:c:" opt; do
+    case $opt in
+      s) 
+        service="$OPTARG"
+        ;;
+      c) 
+        comment="$OPTARG"
+        ;;
+      \?) 
+        echo "Invalid option -$OPTARG" >&2 
+        ;;
+      *)
+       echo "Option -$OPTARG requires an argument." >&2
+       ;;
+    esac
+	if [[ -z $service ]]; then
+	    systemctl restart $service 
+	    if [[ -z $comment ]]; then
+    		echo "$comment"
+		fi
+	fi
+  done
+ 
+}
 
 
 
@@ -215,71 +275,27 @@ else
 fi
 
 
-
-
-
-
-
-- debug:
-    msg: "Use cmdline.txt.orig for boot parameters (don't remove this file)"
-  when: not is_berryboot
-
-- copy:
-    src: /boot/cmdline.txt.orig
-    dest: /boot/cmdline.txt
-    force: yes
-  when: not is_berryboot and config_txt.stdout.find('NOOBS') == -1
-  tags:
-    - touches_boot_partition
-
-
-
-
-
-
-
 # Sometimes in some packages there are no necessary files.
 # They are required to install pip dependencies.
 # In this case we need to reinstall the packages.
-- name: Check if cdefs.h exists
-  stat:
-    path: /usr/include/arm-linux-gnueabihf/sys/cdefs.h
-  register: cdefs
+FILE="/usr/include/arm-linux-gnueabihf/sys/cdefs.h"
+if [ -d "$FILE" ]; then
+  echo "cdefs.h exist"
+else
+  echo "cdefs.h not found."
+  sudo apt-get remove libc6-dev
+  sudo apt-get update && sudo apt get install libc6-dev -y
+fi
 
-- set_fact: cdefs_exist="{{cdefs.stat.exists}}"
+DIR=" /usr/lib/gcc/arm-linux-gnueabihf/4.9/cc1plus"
+if [ -d "$DIR" ]; then
+  echo "cc1plus exists"
+else
+  echo "cc1plus not found."
+  sudo apt-get remove build-essential
+  sudo apt-get update && sudo apt get install build-essential -y
+fi
 
-- name: Remove libc6-dev
-  apt:
-    name: libc6-dev
-    state: absent
-  when: not cdefs_exist
-
-- name: Install libc6-dev
-  apt:
-    name: libc6-dev
-    state: present
-    update_cache: yes
-  when: not cdefs_exist
-
-- name: Check if cc1plus exists
-  stat:
-    path: /usr/lib/gcc/arm-linux-gnueabihf/4.9/cc1plus
-  register: cc1plus
-
-- set_fact: cc1plus_exist="{{cc1plus.stat.exists}}"
-
-- name: Remove build-essential
-  apt:
-    name: build-essential
-    state: absent
-  when: not cc1plus_exist
-
-- name: Install build-essential
-  apt:
-    name: build-essential
-    state: present
-    update_cache: yes
-  when: not cc1plus_exist
 
 apt-get install -y \
   console-data \
@@ -316,84 +332,52 @@ apt-get purge -y
 apt-get autoremove -y
 apt-get dist-upgrade -y
 
-
-- name: Remove deprecated pip dependencies
-  pip:
-    name: supervisor
-    state: absent
+echo "Remove deprecated pip dependencies"
 
 copy_file "rc.local"  "/etc/rc.local" root root 0755 "Copy in rc.local"
 copy_file "01_nodoc"  "/etc/dpkg/dpkg.cfg.d/01_nodoc" root root 0644 "Copy in 01_nodoc"
 copy_file "10-evdev.conf"  "/usr/share/X11/xorg.conf.d/10-evdev.conf" root root 0644 "Copy in evdev"
 copy_file "10-serverflags.conf"  "/usr/share/X11/xorg.conf.d/10-serverflags.conf" root root 0644 "Disable DPMS"
 
+echo "Clear out X11 configs (disables touchpad and other unnecessary things)"
+X11_configs=('50-synaptics.conf' '10-quirks.conf' '50-wacom.conf')
+for c in "${X11_configs[@]}"
+do
+  sudo rm "/usr/share/X11/xorg.conf.d/$c"
+done
 
-
-- name: Clear out X11 configs (disables touchpad and other unnecessary things)
-  file:
-    path: "/usr/share/X11/xorg.conf.d/{{ item }}"
-    state: absent
-  with_items:
-    - 50-synaptics.conf
-    - 10-quirks.conf
-    - 50-wacom.conf
-
-- name: Disable swap
-  command: /sbin/swapoff --all removes=/var/swap
-
-- name: Remove swapfile from disk
-  file:
-    path: /var/swap
-    state: absent
-  
+echo "Disable swap"
+sudo /sbin/swapoff --all removes=/var/swap
+sudo rm /var/swap -r 
     
     
     
 ###  rpi-update
     
     
-    
-    ---
+if [[-z system-upgrade ]]; then
 
-- name: Download rpi-update
-  get_url:
-    url: https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update
-    dest: /usr/bin/rpi-update
-    mode: 0755
-    owner: root
-    group: root
-  when: ansible_distribution_release == "wheezy"
-
-- name: Run kernel upgrade (this can take up to 10 minutes)
-  command: /usr/bin/rpi-update
-  when: ansible_distribution_release == "wheezy"
-  environment:
-    SKIP_WARNING: 1
-  register: rpiupdate
-  tags:
-    - system-upgrade
-
-- debug: msg="{{ rpiupdate.stdout }}"
-  when: ansible_distribution_release == "wheezy"
-  tags:
-    - system-upgrade
-
-    
+  if [[VERSION_CODENAME=="wheezy"]]; then 
+    echo "download rpi-update"
+    sudo curl -L --output /usr/bin/rpi-update https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update && sudo chmod +x /usr/bin/rpi-update
+    echo "Run kernel upgrade (this can take up to 10 minutes)"  
+    sudo SKIP_KERNEL=1 rpi-update
+  fi
+fi
     
 ###  screenly
-    
-    
-    - name: Ensure folders exist
-  file:
-    path: "/home/pi/{{ item }}"
-    state: directory
-    owner: pi
-    group: pi
-  with_items:
-    - .screenly
-    - .config
-    - .config/uzbl
 
+echo "Ensure folders exist"
+DIRS=('.screenly' '.config' '.config/uzbl')
+for d in "${DIRS[@]}"
+do
+  fd="/home/pi/$d"
+  if [[ ! -d $fd ]]; then
+    mkdir $fd
+    sudo chown pi:pi $fd
+  fi 
+done    
+    
 #do not force
 copy_file "screenly.conf"  "/home/pi/.screenly/screenly.conf" pi pi 0600 "Copy Screenly default config"
 
@@ -411,32 +395,14 @@ pip install --requirement /home/pi/screenly/requirements/requirements.txt --no-c
 #do not force
 copy_file "screenly.db"  "/home/pi/.screenly/screenly.db" pi pi 0600 "Create default assets database if does not exists"
 
-- name: Run database migration
-  become_user: pi
-  command: python /home/pi/screenly/bin/migrate.py
-  register: migrate
+echo "Migrate database" && sudo -u pi python /home/pi/screenly/bin/migrate.py
 
-- debug: msg="{{ migrate.stdout }}"
+echo "Remove screenly_utils.sh" && sudo rm /usr/local/bin/screenly_utils.sh
 
-- name: Remove screenly_utils.sh
-  file:
-    state: absent
-    path: /usr/local/bin/screenly_utils.sh
+echo "Cleanup Cron" && sudo rm "/etc/cron.d/Cleanup screenly_assets"
 
-- cron:
-    name: Cleanup screenly_assets
-    state : absent
-    user: pi
-
-- name: Download upgrade_screenly.sh from github repository
-  get_url:
-    url: https://raw.githubusercontent.com/Screenly/screenly-ose/master/bin/install.sh
-    dest: /usr/local/sbin/upgrade_screenly.sh
-    mode: 0700
-    owner: root
-    group: root
-    force: yes
-
+echo "Download upgrade_screenly.sh from github repository"
+  sudo curl -L --output /usr/local/sbin/upgrade_screenly.sh https://raw.githubusercontent.com/Screenly/screenly-ose/master/bin/install.sh && sudo chmod 0700 /usr/local/sbin/upgrade_screenly.sh
 
 
 copy_file "files/screenly_overrides"  "/etc/sudoers.d/screenly_overrides" root root 0440 "Copy screenly_overrides"
@@ -446,68 +412,55 @@ copy_file "/lib/systemd/system/systemd-udevd.service"  "/etc/systemd/system/syst
 
 regex_replace_infile /etc/systemd/system/systemd-udevd.service '^MountFlags=.+$' 'MountFlags=shared' 'Configure systemd-udevd service'
 
-- name: Copy screenly systemd units
-  copy:
-    src: "{{ item }}"
-    dest: "/etc/systemd/system/{{ item }}"
-  with_items: "{{ screenly_systemd_units }}"
 
+echo "Copy screenly systemd units"
+system_d_units=('X.service' 'matchbox.service' 'screenly-celery.service' 'screenly-viewer.service' 'screenly-web.service' 'screenly-websocket_server_layer.service' 'udev-restart.service')
+for sdu in "${system_d_units[@]}"
+do
+  sudo cp "./files/$sdu" "/etc/systemd/system/$sdu"
+done
 
 copy_file "plymouth-quit-wait.service"  "/lib/systemd/system/plymouth-quit-wait.service" root root 0644 "Copy plymouth-quit-wait.service"
 copy_file "plymouth-quit.service"  "/lib/systemd/system/plymouth-quit.service" root root 0644 "Copy plymouth-quit.service"
 
+echo "Enable Screenly systemd services"
+for sdu in "${system_d_units[@]}"
+do
+  sudo systemctl enable $sdu chdir=/etc/systemd/system
+done
 
-- name: Enable screenly systemd services
-  command: systemctl enable {{ item }} chdir=/etc/systemd/system
-  with_items: "{{ screenly_systemd_units }}"
 
-    
-    
     
 ###  network
     
-    
-    
-    
-    - name: Check if screenly-network-manager files exist
-  stat:
-    path: /usr/sbin/screenly_net_mgr.py
-  register: screenly_network_manager
+echo "Check if screenly-network-manager files exist"    
+FILE="/usr/sbin/screenly_net_mgr.py"
+if [ -d "$FILE" ]; then
+  ### Take action if $FILE exists ###
+	echo "Detected screenly-network-manager files."
+	systemctl disable screenly-net-manager.service
+	systemctl disable screenly-net-watchdog.timer
+else    
+fi
 
-- set_fact: screenly_network_manager_exist="{{screenly_network_manager.stat.exists}}"
+echo "Remove Network manager and watchdog"
+screenly_net_service_files=('screenly_net_mgr.py' 'screenly_net_watchdog.py')
+for snsf in "${screenly_net_service_files[@]}"
+do 
+  sudo rm "/usr/sbin/$snsf"
+done
 
-- name: Disable network manager
-  command: systemctl disable screenly-net-manager.service
-  when: screenly_network_manager_exist
+echo "Remove network manager and watchdog unit files"
+screenly_net_services=('screenly-net-manager.service' 'screenly-net-watchdog.service')
+for sns in "${screenly_net_services[@]}"
+do 
+  sudo rm "/etc/systemd/system/$sns"
+done
 
-- name: Disable network watchdog
-  command: systemctl disable screenly-net-watchdog.timer
-  when: screenly_network_manager_exist
-
-- name: Remove network manger and watchdog
-  file:
-    state: absent
-    path: "/usr/sbin/{{ item }}"
-  with_items:
-    - screenly_net_mgr.py
-    - screenly_net_watchdog.py
-
-- name: Remove network manager and watchdog unit files
-  file:
-    state: absent
-    path: "/etc/systemd/system/{{ item }}"
-  with_items:
-    - screenly-net-manager.service
-    - screenly-net-watchdog.service
-
-- name: Remove network watchdog timer file
-  file:
-    state: absent
-    path: /etc/systemd/system/screenly-net-watchdog.timer
+echo "Remove network watchdog timer file" && sudo rm /etc/systemd/system/screenly-net-watchdog.timer
 
 # Use resin-wifi-connect if Stretch
-- debug:
-    msg: "Manage network: {{ manage_network }}"
+
 
 if [[ $manage_network==true ]];then
   regex_replace_infile /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla '^Identity=.*' 'Identity=unix-group:netdev;unix-group:sudo:pi' 'Add pi user to Identity'
@@ -547,149 +500,64 @@ fi
     - not resin_wifi_version_file_exist
     - manage_network|bool == true
 
-- name: Unarchive resin-wifi-connect release
-  unarchive:
-    src: /home/pi/resin-wifi-connect.tar.gz
-    dest: /home/pi
-    owner: pi
-    group: pi
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - not resin_wifi_version_file_exist
-    - manage_network|bool == true
-
-- name: Copy "ui" folder
-  copy:
-    src: /home/pi/ui/
-    dest: /usr/local/share/wifi-connect/ui
-    mode: 0755
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - not resin_wifi_version_file_exist
-    - manage_network|bool == true
-
-- name: Copy wifi-connect file
-  copy:
-    src: /home/pi/wifi-connect
-    dest: /usr/local/sbin
-    mode: 0755
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - not resin_wifi_version_file_exist
-    - manage_network|bool == true
-
-- name: Touch resin-wifi-connect version file
-  file:
-    state: touch
-    path: "/usr/local/share/wifi-connect/ui/{{ resin_wifi_connect_version }}"
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - not resin_wifi_version_file_exist
-    - manage_network|bool == true
-
-- name: Remove unarchive files
-  file:
-    state: absent
-    path: "/home/pi/{{ item }}"
-  with_items:
-    - wifi-connect
-    - ui
-    - resin-wifi-connect.tar.gz
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - not resin_wifi_version_file_exist
-    - manage_network|bool == true
+#not finished
+if [[-z $manage_network=="true" ]]; then
+  if [[ ! -z $resin_wifi_version_file_exist ]]; then
+    if [[ $ansible_distribution_major_version>=9 ]]; then
+      sudo tar -xfv /home/pi/resin-wifi-connect.tar.gz /home/pi && chown pi:pi /home/pi/resin-wifi-connect -R
+      copy_file "/home/pi/ui/"  "/usr/local/share/wifi-connect/ui" pi pi 0755 "Copy 'ui' folder"
+      copy_file "/home/pi/wifi-connect"  "/usr/local/sbin" pi pi 0755 "Copy wifi-connect file"
+      echo "Touch resin-wifi-connect version file" &&  touch "/usr/local/share/wifi-connect/ui/$resin_wifi_connect_version"
+      echo "Remove unarchive files"
+      sudo rm "/home/pi/wifi-connect" -r 
+      sudo rm "/home/pi/ui" -r 
+      sudo rm "/home/pi/resin-wifi-connect.tar.gz" -r 
+    fi
+  fi
+fi
 
 copy_file "wifi-connect.service"  "/etc/systemd/system/wifi-connect.service" root root 0644 "Copy wifi-connect systemd unit"
-
-
-
-- name: Enable wifi-connect systemd service
-  systemd:
-    name: wifi-connect.service
-    enabled: yes
-
-- name: Touch initialized file
-  file:
-    state: touch
-    path: "/home/pi/.screenly/initialized"
+echo "Enable wifi-connect systemd service" && systemctl enable wifi-connect.service
+echo "Touch initialized file" && touch "/home/pi/.screenly/initialized"
 
 
 
 
 ###  splashscreen
     
-   ---
-
+if [[VERSION_CODENAME=="jessie"]]; then 
 # If Jessie
-- name: Installs dependencies (Jessie)
-  apt:
-    name:
-	fbi
-  when: ansible_distribution_major_version|int <= 7
-
-- name: Copies in splash screen
-  copy:
-    src: splashscreen.png
-    dest: /etc/splashscreen.png
-  when: ansible_distribution_major_version|int <= 7
-
-- name: Copies in rc script
-  copy:
-    src: asplashscreen
-    dest: /etc/init.d/asplashscreen
-    mode: 0755
-  when: ansible_distribution_major_version|int <= 7
-
-- name: Enables asplashscreen
-  command: update-rc.d asplashscreen defaults
-  args:
-    creates: /etc/rcS.d/S01asplashscreen
-  when: ansible_distribution_major_version|int <= 7
-
+  if [[ $ansible_distribution_major_version<=7 ]]; then
+    sudo apt install -y fbi
+    copy_file "splashscreen.png"  "/etc/splashscreen.png" root root 0644 "Copies in splash screen"
+    copy_file "asplashscreen"  " /etc/init.d/asplashscreen" root root 0755 "Copies in rc script"
+    echo "Enables asplashscreen"
+    if [[ !-d "/etc/rcS.d/S01asplashscreen" ]]; then
+      update-rc.d asplashscreen defaults
+    fi
+  fi
+  
+else 
 # If not Jessie
+  if [[ $ansible_distribution_major_version> ]]; then
+    echo "Remove older versions"
+    sudo rm -f /etc/splashscreen.jpg
+    sudo rm -f /etc/init.d/asplashscreen
+    echo "Disable asplashscreen" && sudo update-rc.d asplashscreen remove
+    echo "Installs dependencies (not Jessie)" && sudo apt install -y plymouth pix-plym-splash
+    echo "Copies plymouth theme"
+    paymouth_files=('screenly.plymouth' 'screenly.script' 'splashscreen.png')
+    for pf in "${paymouth_files[@]}"
+    do
+      sudo cp "./files/$pf" " /usr/share/plymouth/themes/screenly/$pf"
+    done
+    echo "Set splashscreen" && plymouth-set-default-theme -R screenly
+    echo  "Set plymouthd.default"
+    sudo cp "./files/plymouthd.default"  "/usr/share/plymouth/plymouthd.default"
+  fi
+fi
 
-- name: Remove older versions
-  file:
-    state: absent
-    path: "{{ item }}"
-  with_items:
-    - /etc/splashscreen.jpg
-    - /etc/init.d/asplashscreen
-  when: ansible_distribution_major_version|int > 7
 
-- name: Disable asplashscreen
-  command: update-rc.d asplashscreen remove
-  when: ansible_distribution_major_version|int > 7
-
-- name: Installs dependencies (not Jessie)
-  apt:
-    name:
-	plymouth
-	pix-plym-splash
-  when: ansible_distribution_major_version|int > 7
-
-- name: Copies plymouth theme
-  copy:
-    src: "{{ item }}"
-    dest: /usr/share/plymouth/themes/screenly/
-  with_items:
-    - screenly.plymouth
-    - screenly.script
-    - splashscreen.png
-  when: ansible_distribution_major_version|int > 7
-
-- name: Set splashscreen
-  command: plymouth-set-default-theme -R screenly
-  when: ansible_distribution_major_version|int > 7
-
-- name: Set plymouthd.default
-  copy:
-    src: plymouthd.default
-    dest: /usr/share/plymouth/plymouthd.default
-  when: ansible_distribution_major_version|int > 7
- 
-    
     
 ###  nginx
     
