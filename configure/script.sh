@@ -9,6 +9,15 @@ skip-tags
 enable-ssl
 system-upgrade
 
+
+os=cat /etc/os-release
+os1=lsb_release -a
+sa="/home/pi/screenly_assets"
+sc="/home/pi/.Screenly
+screenly=[[ -d $sc ]] && [[ -d $sa ]]
+screenlyd=docker image ls | grep screenly
+
+
 ###
 ### FUNCTIONS
 ###
