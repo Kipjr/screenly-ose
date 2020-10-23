@@ -1,36 +1,64 @@
 #!/bin/bash
 
-# read the options
-TEMP=`getopt -o f:s::d:a::  "$@"`
-eval set -- "$TEMP"
+ENABLE_SSL=false
+SYSTEM_UPGRADE=false
+MANAGE_NETWORK=false
 
-# extract options and their arguments into variables.
-while true ; do
-    case "$1" in
-        -f)
-            a=$2 ; shift 2 ;;
-        -s)
-            b='.' ; shift 2 ;;
-        -d)
-            c=$2 ; shift 2;;
-        -a)
-        *) echo "Internal error!" ; exit 1 ;;
+usage () { echo "How to use"; }
+
+options='su:i:j:r:R:v:h'
+while getopts $options option
+do
+    case "$option" in
+        i  ) i_func;;
+        j  ) j_arg=$OPTARG;;
+        r  ) rflag=true; small_r=true;;
+        R  ) rflag=true; big_r=true;;
+        s  ) ENABLE_SSL=true;;
+        u  ) SYSTEM_UPGRADE=true;;
+        n  ) MANAGE_NETWORK=true;;
+        h  ) usage; exit;;
+        \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
+        :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
+        *  ) echo "Unimplemented option: -$OPTARG" >&2; exit 1;;
     esac
 done
 
-# Now take action
-echo "$action file $fileName from $sourceDir to $destinationDir"
+if ((OPTIND == 1))
+then
+    echo "No options specified"
+fi
+
+shift $((OPTIND - 1))
+
+if (($# == 0))
+then
+    echo "No positional arguments specified"
+fi
+
+if ! $rflag && [[ -d $1 ]]
+then
+    echo "-r or -R must be included when a directory is specified" >&2
+    exit 1
+fi
+
+
+
+
 
 ###
 ### VARS
 ###
 
-skip-tags 
-enable-ssl
-system-upgrade
+######
+###### Static Vars
+###### 
 
+resin_wifi_connect_version="4.2.13"
 
-os=cat /etc/os-release
+######
+###### Dynamic Vars
+###### 
 
 ID=$(cat /etc/os-release | grep ID | cut -d= -f2-)
 ID_LIK=$(cat /etc/os-release | grep ID_LIKE | cut -d= -f2-)
@@ -59,7 +87,7 @@ regex_replace_infile () {
   echo -e "\tReplace '$2' with '$3' in $1"
 }
 
-copy_file () {
+copy_file2 () {
  # source target owner group flags comment
  #
  #
@@ -85,123 +113,80 @@ copy_file () {
   fi
 }
 
-https://wiki.bash-hackers.org/howto/getopts_tutorial
-copy_file2 () {
+copy_file () {
  # source target owner group flags comment
  #
  #
-  while getopts ":s:t:o:g:p:c:f:" opt; do
-    case $opt in
-      s) 
-        source="$OPTARG"
-        echo "-s was triggered!" >&2
-        ;;
-      t) 
-        target="$OPTARG"
-        echo "-t was triggered!" >&2
-        ;;
-      o) 
-        owner="$OPTARG"
-        echo "-o was triggered!" >&2
-        ;;
-      g) 
-        group="$OPTARG"
-        echo "-g was triggered!" >&2
-        ;;
-      p) 
-        flags="$OPTARG"
-        echo "-p was triggered!" >&2
-        ;;
-      c) 
-        comment="$OPTARG"
-        echo "-c was triggered!" >&2
-        ;;
-      f) 
-        force="$OPTARG"
-        echo "-f was triggered!" >&2
-        ;;
-      \?) 
-        echo "Invalid option -$OPTARG" >&2 
-        ;;
-      :)
-       echo "Option -$OPTARG requires an argument." >&2
-       ;;
-    esac
-    printf "Argument is %s\n" "$comment"
+  options=':s:t:o:gf:m:c:h'
+  while getopts $options option
+  do
+      case "$option" in
+          s  ) SOURCE=$OPTARG;;
+          t  ) TARGET=$OPTARG;;
+          o  ) OWNER=$OPTARG;;
+          g  ) GROUP=$OPTARG;;
+          f  ) FORCE=true;;
+          m  ) FLAGS=$OPTARG;;
+          c  ) COMMENT=$OPTARG;;
+          h  ) usage; exit;;
+          \? ) echo "Unknown option: -$OPTARG" >&2; exit 1;;
+          :  ) echo "Missing option argument for -$OPTARG" >&2; exit 1;;
+          *  ) echo "Unimplemented option: -$OPTARG" >&2; exit 1;;
+      esac
   done
- 
+
+  if ((OPTIND == 1))
+  then
+      echo "No options specified"
+  fi
+
+  shift $((OPTIND - 1))
+
+  if (($# == 0))
+  then
+      echo "No positional arguments specified"
+  fi
+
+  if ![[ $SOURCE && [[ -d $1 ]] ]] || ![[ $TARGET && [[ -d $1 ]] ]]
+  then
+      echo "-s and -t must be included" >&2
+      exit 1
+  fi
+  if ![[ $OWNER && [[ -d $1 ]] ]] || ![[ $GROUP && [[ -d $1 ]] ]]
+  then
+      echo "-o and -g must be included" >&2
+      exit 1
+  fi
+
+  str=""
+
+  if [[ $COMMENT && [[ -d $1 ]] ]]
+  then
+      echo "$COMMENT"
+  fi
+
+  str+="Copying $SOURCE to $TARGET"
+  
+  if [[ -z $FORCE]]; then
+    cp -n $SOURCE $TARGET -f
+  else 
+    cp -n $SOURCE $TARGET
+  fi 
+  if [ ! -z $3 ] && [ ! -z $4 ];then 
+    chown $GROUP:$OWNER $TARGET
+    str+=" as $GROUP:$OWNER"
+  fi
+  if [ ! -z $FLAGS ];then 
+    chmod $FLAGS $TARGET
+    str+=" with $FLAGS flags"
+  fi
+  echo -e "\t$str"
 }
 
 
-
-
-
-
-
-DIR="/etc/httpd/"
-if [ -d "$DIR" ]; then
-  ### Take action if $DIR exists ###
-  echo "Installing config files in ${DIR}..."
-else
-  ###  Control will jump here if $DIR does NOT exists ###
-  echo "Error: ${DIR} not found. Can not continue."
-  exit 1
-fi
-
-
-
-#!/bin/bash
-dldir="$HOME/linux/5.x"
-_out="/tmp/out.$$"
- 
-# Build urls
-url="some_url/file.tar.gz"
-file="${url##*/}"
- 
-### Check for dir, if not found create it using the mkdir ##
-[ ! -d "$dldir" ] && mkdir -p "$dldir"
-
-
-
-FILE=/etc/resolv.conf
-if [ -f "$FILE" ]; then
-    echo "$FILE exists."
-fi
-
-
-- name: Install Screenly
-  hosts: all
-  user: pi
-  become: yes
-  vars:
-    manage_network: "{{ lookup('env', 'MANAGE_NETWORK') }}"
-
-  handlers:
-    - name: restart-nginx
-      service:
-        name: nginx
-        state: restarted
-
-    - name: reload systemctl
-      command: systemctl daemon-reload
-
-    - name: restart-screenly-websocket_server_layer
-      command: systemctl restart screenly-websocket_server_layer.service
-
-    - name: restart-screenly-server
-      command: systemctl restart screenly-web.service
-
-    - name: restart-x-server
-      command: "systemctl restart {{ item }}"
-      with_items:
-	X.service
-	matchbox.service
-
-    - name: restart-screenly-viewer
-      command: systemctl restart screenly-viewer.service
-
-  roles:
-  
+######
+######  Roles
+######  
   
   
   
@@ -287,6 +272,7 @@ apt-get purge -y
 	lightdm-gtk-greeter \
 	dphys-swapfile \
 	rabbitmq-server
+  pix-plym-splash \
 	cups \
 	cups-browsed \
 	cups-client \
@@ -320,7 +306,7 @@ sudo rm /var/swap -r
 ###  rpi-update
     
     
-if [[-z system-upgrade ]]; then
+if [[-z $SYSTEM_UPGRADE ]]; then
 
   if [[VERSION_CODENAME=="wheezy"]]; then 
     echo "download rpi-update"
@@ -427,7 +413,7 @@ echo "Remove network watchdog timer file" && sudo rm /etc/systemd/system/screenl
 # Use resin-wifi-connect if Stretch
 
 
-if [[ $manage_network==true ]];then
+if [[ $MANAGE_NETWORK==true ]];then
   regex_replace_infile /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla '^Identity=.*' 'Identity=unix-group:netdev;unix-group:sudo:pi' 'Add pi user to Identity'
   regex_replace_infile /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla '^ResultAny=.*' 'ResultAny=yes' 'Set ResultAny to yes'
   echo "Copy org.freedesktop.NetworkManager.pkla to 50-local.d"
@@ -443,30 +429,15 @@ fi
 
 
 
-
-
-- name: Check if resin-wifi-connect required version exist
-  stat:
-    path: "/usr/local/share/wifi-connect/ui/{{ resin_wifi_connect_version }}"
-  register: resin_wifi_version_file
-  when:
-    - ansible_distribution_major_version|int >= 9
-
-- set_fact: resin_wifi_version_file_exist="{{resin_wifi_version_file.stat.exists}}"
-  when:
-    - ansible_distribution_major_version|int >= 9
-
-- name: Download resin-wifi-connect release
-  get_url:
-    url: "https://github.com/resin-io/resin-wifi-connect/releases/download/v{{ resin_wifi_connect_version }}/wifi-connect-v{{ resin_wifi_connect_version }}-linux-rpi.tar.gz"
-    dest: /home/pi/resin-wifi-connect.tar.gz
-  when:
-    - ansible_distribution_major_version|int >= 9
-    - not resin_wifi_version_file_exist
-    - manage_network|bool == true
+if [[ $MANAGE_NETWORK=="True" ]]; then
+   if [[ ! -f "/usr/local/share/wifi-connect/ui/$resin_wifi_connect_version" ]]; then
+      if [[ $ansible_distribution_major_version>=9 ]]; then
+      echo "Download resin-wifi-connect release"
+      sudo curl -L --output /home/pi/resin-wifi-connect.tar "https://github.com/resin-io/resin-wifi-connect/releases/download/v$resin_wifi_connect_version/wifi-connect-v$resin_wifi_connect_version-linux-rpi.tar.gz"
+ 
 
 #not finished
-if [[-z $manage_network=="true" ]]; then
+if [[-z $MANAGE_NETWORK=="true" ]]; then
   if [[ ! -z $resin_wifi_version_file_exist ]]; then
     if [[ $ansible_distribution_major_version>=9 ]]; then
       sudo tar -xfv /home/pi/resin-wifi-connect.tar.gz /home/pi && chown pi:pi /home/pi/resin-wifi-connect -R
@@ -504,7 +475,7 @@ if [[VERSION_CODENAME=="jessie"]]; then
   
 else 
 # If not Jessie
-  if [[ $ansible_distribution_major_version> ]]; then
+  if [[ $ansible_distribution_major_version>7 ]]; then
     echo "Remove older versions"
     sudo rm -f /etc/splashscreen.jpg
     sudo rm -f /etc/init.d/asplashscreen
@@ -526,14 +497,8 @@ fi
     
 ###  nginx
     
-    
-    ---
-# Enable Nginx
-- name: Check screenly.conf
-  command: cat /home/pi/.screenly/screenly.conf
-  register: config
 
-- set_fact: no_ssl="{{config.stdout.find('use_ssl = True') == -1}}"
+# Enable Nginx
 echo "Install nginx-light"
 sudo apt-get install nginx-light -y
 echo "Cleans up default config"
@@ -543,35 +508,24 @@ regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '
   
     
 ###  ssl
-    
-    
-  ---
-- name: Check screenly.conf
-  command: cat /home/pi/.screenly/screenly.conf
-  register: config
-  tags:
-    - enable-ssl
-
-- set_fact: no_use_ssl_parameter="{{config.stdout.find('use_ssl') == -1}}"
-  tags:
-    - enable-ssl
-
-echo "Install nginx-light"
-sudo apt-get install nginx-light -y
-echo "Cleans up default config"
-sudo rm /etc/nginx/sites-enabled/default  
-copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
-service nginx restart
-copy_file "files/screenly.crt"  "/etc/ssl/screenly.crt" root root 0600 "Installs self-signed certificates / crt"
-copy_file "files/screenly.key"  "/etc/ssl/screenly.key" root root 0600 "Installs self-signed certificates / key"
-regex_replace_infile "/home/pi/.screenly/screenly.conf" '^.*database.*;' '^.*database.*;\nuse_ssl = True' 'Turns on the ssl mode'
-regex_replace_infile "/home/pi/.screenly/screenly.conf" '^.*use_ssl.*' 'use_ssl = True' 'Turns on the ssl mode'
-regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '' 'Modifies screenly-web service to only listen on localhost'
-sudo systemctl daemon-reload
-systemctl restart screenly-websocket_server_layer.service
-systemctl restart screenly-web.service
-    
-    
+if [[ -z $ENABLE_SSL ]]; then
+  use_ssl=$(cat /home/pi/.screenly/screenly.conf | grep use_ssl | cut -d= -f2)
+  if [[ -z $use_ssl ]] || [[ $use_ssl=='False' ]]; then
+    echo "Install nginx-light"
+    sudo apt-get install nginx-light -y
+    echo "Cleans up default config"
+    sudo rm /etc/nginx/sites-enabled/default  
+    copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
+    service nginx restart
+    copy_file "files/screenly.crt"  "/etc/ssl/screenly.crt" root root 0600 "Installs self-signed certificates / crt"
+    copy_file "files/screenly.key"  "/etc/ssl/screenly.key" root root 0600 "Installs self-signed certificates / key"
+    regex_replace_infile "/home/pi/.screenly/screenly.conf" '^.*use_ssl.*' 'use_ssl = True' 'Turns on the ssl mode'
+    regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '' 'Modifies screenly-web service to only listen on localhost'
+    sudo systemctl daemon-reload
+    systemctl restart screenly-websocket_server_layer.service
+    systemctl restart screenly-web.service
+  fi
+fi    
 ###  tools
 copy_file "files/ngrok"  "/usr/local/bin/" root root 0755 "Copy ngrok binary"
 copy_file "files/nginx.conf"  "/etc/nginx/sites-enabled/screenly_assets.conf" root root 0644 "Installs nginx config"
