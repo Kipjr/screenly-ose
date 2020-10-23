@@ -149,12 +149,12 @@ copy_file () {
       echo "No positional arguments specified"
   fi
 
-  if [[ ! $SOURCE ]] && [[ ! -d $1 ]] || [[ ! $TARGET ]] && [[ ! -d $1 ]]
+  if [[ ! $SOURCE ]] && [[ ! -d $SOURCE  ]] || [[ ! $TARGET ]] && [[ ! -d $TARGET ]]
   then
       echo "-s and -t must be included" >&2
       exit 1
   fi
-  if [[ ! $OWNER ]] && [[ ! -d $1 ]]  || [[ ! $GROUP ]] && [[ ! -d $1 ]]
+  if [[ ! $OWNER ]] && [[ ! -d $OWNER ]]  || [[ ! $GROUP ]] && [[ ! -d $GROUP ]]
   then
       echo "-o and -g must be included" >&2
       exit 1
@@ -162,7 +162,7 @@ copy_file () {
 
   str=""
 
-  if [[ $COMMENT ]] && [[ -d $1 ]] 
+  if [[ $COMMENT ]] && [[ -d $COMMENT ]] 
   then
       echo "$COMMENT"
   fi
@@ -236,8 +236,8 @@ if [ -d "$FILE" ]; then
   echo "cdefs.h exist"
 else
   echo "cdefs.h not found."
-  sudo apt-get remove libc6-dev -y 2>&1 > $SCREENLY_LOG
-  sudo apt-get update -y 2>&1 > $SCREENLY_LOG && sudo apt get install libc6-dev -y 2>&1 > $SCREENLY_LOG
+  sudo apt-get remove libc6-dev -y #2>&1 > $SCREENLY_LOG
+  sudo apt-get update -y  && sudo apt-get install libc6-dev -y #2>&1 > $SCREENLY_LOG
 fi
 
 DIR=" /usr/lib/gcc/arm-linux-gnueabihf/4.9/cc1plus"
@@ -245,8 +245,8 @@ if [ -d "$DIR" ]; then
   echo "cc1plus exists"
 else
   echo "cc1plus not found."
-  sudo apt-get remove build-essential -y 2>&1 > $SCREENLY_LOG
-  sudo apt-get update -y 2>&1 > $SCREENLY_LOG && sudo apt-get install build-essential -y 2>&1 > $SCREENLY_LOG
+  sudo apt-get remove build-essential -y #2>&1 > $SCREENLY_LOG
+  sudo apt-get update -y  && sudo apt-get install build-essential -y #2>&1 > $SCREENLY_LOG
 fi
 
 
@@ -266,7 +266,7 @@ apt-get install -y \
   systemd \
   uzbl \
   x11-xserver-utils \
-  xserver-xorg 2>&1 > $SCREENLY_LOG
+  xserver-xorg #2>&1 > $SCREENLY_LOG
 
 
 apt-get purge -y 
@@ -281,10 +281,10 @@ apt-get purge -y
 	cups-client \
 	cups-common \
 	cups-daemon \
-	cups-server-common 2>&1 > $SCREENLY_LOG
+	cups-server-common #2>&1 > $SCREENLY_LOG
 
-apt-get autoremove -y 2>&1 > $SCREENLY_LOG
-apt-get dist-upgrade -y 2>&1 > $SCREENLY_LOG
+apt-get autoremove -y #2>&1 > $SCREENLY_LOG
+apt-get dist-upgrade -y #2>&1 > $SCREENLY_LOG
 
 echo "Remove deprecated pip dependencies"
 
