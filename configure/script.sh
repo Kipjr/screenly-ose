@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -abhxv
 
 ENABLE_SSL=false
 SYSTEM_UPGRADE=false
@@ -61,7 +61,7 @@ SCREENLY_LOG="/home/pi/screenly_install.log"
 ###### 
 
 ID=$(cat /etc/os-release | grep ID | cut -d= -f2-)
-ID_LIK=$(cat /etc/os-release | grep ID_LIKE | cut -d= -f2-)
+ID_LIKE=$(cat /etc/os-release | grep ID_LIKE | cut -d= -f2-)
 VERSION_ID=$(cat /etc/os-release | grep VERSION_ID | cut -d= -f2-)
 VERSION_CODENAME=$(cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2-)
 MACHINE=$(uname -m)
@@ -81,10 +81,10 @@ regex_replace_infile () {
  #
  # path_file find replace comment
  #
-  cat $1 | perl -pe "s/$2/$3/" > /tmp/regex.tmp
-  mv /tmp/regex.tmp  $1
-  if [[ ! -z $4 ]];then 
-    echo $4
+  cat "$1" | perl -pe "s/$2/$3/" > /tmp/regex.tmp
+  mv /tmp/regex.tmp  "$1"
+  if [[ -n $4 ]];then 
+    echo "$4"
   fi
   echo -e "\tReplace '$2' with '$3' in $1"
 }
@@ -94,19 +94,19 @@ copy_file2 () {
  #
  #
   str=""
-  if [ ! -z $6 ]; then
-    echo $6
+  if [ -n "$6" ]; then
+    echo "$6"
   fi
   str+="Copying $1 to $2"
-  if [ ! -z $1 ] && [ ! -z $2 ]; then
+  if [ -n "$1" ] && [ -n "$2" ]; then
     #make this -n -f optional based on args
-    cp -n $1 $2 -f 
-    if [ ! -z $3 ] && [ ! -z $4 ];then 
-      chown $3:$4 $2
+    cp -n "$1" "$2" -f 
+    if [ -n "$3" ] && [ -n "$4" ];then 
+      chown "$3:$4 $2"
       str+=" as $3:$4"
     fi
-    if [ ! -z $5 ];then 
-      chmod $5 $2
+    if [ -n "$5" ];then 
+      chmod "$5 $2"
       str+=" with $5 flags"
     fi
     echo -e "\t$str"
@@ -170,16 +170,16 @@ copy_file () {
   str+="Copying $SOURCE to $TARGET"
   
   if [[ -z $FORCE ]]; then
-    cp -n $SOURCE $TARGET -f
+    cp -n "$SOURCE" "$TARGET" -f
   else 
-    cp -n $SOURCE $TARGET
+    cp -n "$SOURCE" "$TARGET"
   fi 
-  if [[ ! -z $3 ]] && [[ ! -z $4 ]];then 
-    chown $GROUP:$OWNER $TARGET
+  if [[ -n "$3" ]] && [[ -n "$4" ]];then 
+    chown "$GROUP:$OWNER $TARGET"
     str+=" as $GROUP:$OWNER"
   fi
-  if [[ ! -z $FLAGS ]];then 
-    chmod $FLAGS $TARGET
+  if [[ -n "$FLAGS" ]];then 
+    chmod "$FLAGS $TARGET"
     str+=" with $FLAGS flags"
   fi
   echo -e "\t$str"
@@ -309,9 +309,9 @@ sudo rm /var/swap -r
 ###  rpi-update
     
     
-if [[-z $SYSTEM_UPGRADE ]]; then
+if [[ -z $SYSTEM_UPGRADE ]]; then
 
-  if [[ VERSION_CODENAME=="wheezy" ]]; then 
+  if [[ $VERSION_CODENAME == "wheezy" ]]; then 
     echo "download rpi-update"
     sudo curl -L --output /usr/bin/rpi-update https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update && sudo chmod +x /usr/bin/rpi-update
     echo "Run kernel upgrade (this can take up to 10 minutes)"  
@@ -327,8 +327,8 @@ for d in "${DIRS[@]}"
 do
   fd="/home/pi/$d"
   if [[ ! -d $fd ]]; then
-    mkdir $fd
-    sudo chown pi:pi $fd
+    mkdir "$fd"
+    sudo chown pi:pi "$fd"
   fi 
 done    
     
@@ -380,7 +380,7 @@ copy_file -s "plymouth-quit.service" -t "/lib/systemd/system/plymouth-quit.servi
 echo "Enable Screenly systemd services"
 for sdu in "${system_d_units[@]}"
 do
-  sudo systemctl enable $sdu chdir=/etc/systemd/system
+  sudo systemctl enable "$sdu" chdir=/etc/systemd/system
 done
 
 
@@ -394,7 +394,8 @@ if [[ -d "$FILE" ]]; then
 	echo "Detected screenly-network-manager files."
 	systemctl disable screenly-net-manager.service
 	systemctl disable screenly-net-watchdog.timer
-else    
+else
+  echo     
 fi
 
 echo "Remove Network manager and watchdog"
@@ -416,7 +417,7 @@ echo "Remove network watchdog timer file" && sudo rm /etc/systemd/system/screenl
 # Use resin-wifi-connect if Stretch
 
 
-if [[ $MANAGE_NETWORK==true ]];then
+if [[ $MANAGE_NETWORK == true ]];then
   regex_replace_infile /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla '^Identity=.*' 'Identity=unix-group:netdev;unix-group:sudo:pi' 'Add pi user to Identity'
   regex_replace_infile /var/lib/polkit-1/localauthority/10-vendor.d/org.freedesktop.NetworkManager.pkla '^ResultAny=.*' 'ResultAny=yes' 'Set ResultAny to yes'
   echo "Copy org.freedesktop.NetworkManager.pkla to 50-local.d"
@@ -432,17 +433,19 @@ fi
 
 
 
-if [[ $MANAGE_NETWORK=="True" ]]; then
-   if [[ ! -f "/usr/local/share/wifi-connect/ui/$resin_wifi_connect_version" ]]; then
-      if [[ $ansible_distribution_major_version>=9 ]]; then
+if [[ $MANAGE_NETWORK == "true" ]]; then
+    if [[ ! -f "/usr/local/share/wifi-connect/ui/$resin_wifi_connect_version" ]]; then
+      if [[ $ansible_distribution_major_version -ge 9 ]]; then
       echo "Download resin-wifi-connect release"
       sudo curl -L --output /home/pi/resin-wifi-connect.tar "https://github.com/resin-io/resin-wifi-connect/releases/download/v$resin_wifi_connect_version/wifi-connect-v$resin_wifi_connect_version-linux-rpi.tar.gz"
- 
+    fi
+  fi
+fi
 
 #not finished
-if [[-z $MANAGE_NETWORK=="true" ]]; then
-  if [[ ! -z $resin_wifi_version_file_exist ]]; then
-    if [[ $ansible_distribution_major_version>=9 ]]; then
+if [[ $MANAGE_NETWORK == "true" ]]; then
+  if [[ !  -f $resin_wifi_version_file_exist ]]; then
+    if [[ $ansible_distribution_major_version -ge 9 ]]; then
       sudo tar -xfv /home/pi/resin-wifi-connect.tar.gz /home/pi && chown pi:pi /home/pi/resin-wifi-connect -R
       copy_file -s "/home/pi/ui/" -t "/usr/local/share/wifi-connect/ui" -u pi -g pi -m 0755 -c "Copy 'ui' folder"
       copy_file -s "/home/pi/wifi-connect" -t "/usr/local/sbin" -u pi -g pi -m 0755 -c "Copy wifi-connect file"
@@ -464,21 +467,21 @@ echo "Touch initialized file" && touch "/home/pi/.screenly/initialized"
 
 ###  splashscreen
     
-if [[VERSION_CODENAME=="jessie"]]; then 
+if [[ $VERSION_CODENAME == "jessie" ]]; then 
 # If Jessie
-  if [[ $ansible_distribution_major_version<=7 ]]; then
+  if [[ $ansible_distribution_major_version -le 7 ]]; then
     sudo apt install -y fbi
     copy_file -s "splashscreen.png" -t "/etc/splashscreen.png" -u root -g root -m 0644 -c "Copies in splash screen"
     copy_file -s "asplashscreen" -t "/etc/init.d/asplashscreen" -u root -g root -m 0755 -c "Copies in rc script"
     echo "Enables asplashscreen"
-    if [[ !-d "/etc/rcS.d/S01asplashscreen" ]]; then
+    if [[ ! -d "/etc/rcS.d/S01asplashscreen" ]]; then
       update-rc.d asplashscreen defaults
     fi
   fi
   
 else 
 # If not Jessie
-  if [[ $ansible_distribution_major_version>7 ]]; then
+  if [[ $ansible_distribution_major_version -gt 7 ]]; then
     echo "Remove older versions"
     sudo rm -f /etc/splashscreen.jpg
     sudo rm -f /etc/init.d/asplashscreen
@@ -513,7 +516,7 @@ regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '
 ###  ssl
 if [[ -z $ENABLE_SSL ]]; then
   use_ssl=$(cat /home/pi/.screenly/screenly.conf | grep use_ssl | cut -d= -f2)
-  if [[ -z $use_ssl ]] || [[ $use_ssl=='False' ]]; then
+  if [[ -z $use_ssl ]] || [[ $use_ssl == 'False' ]]; then
     echo "Install nginx-light"
     sudo apt-get install nginx-light -y
     echo "Cleans up default config"
