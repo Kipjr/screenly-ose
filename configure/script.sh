@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 ENABLE_SSL=false
 SYSTEM_UPGRADE=false
 MANAGE_NETWORK=false
@@ -44,8 +45,6 @@ fi
 
 
 
-
-
 ###
 ### VARS
 ###
@@ -55,6 +54,7 @@ fi
 ###### 
 
 resin_wifi_connect_version="4.2.13"
+SCREENLY_LOG="/home/pi/screenly_install.log"
 
 ######
 ###### Dynamic Vars
@@ -67,8 +67,10 @@ VERSION_CODENAME=$(cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2-)
 MACHINE=$(uname -m)
 ASSETS="/home/pi/screenly_assets"
 SCREENLY_CONFIG="/home/pi/.Screenly"
-SCREENLY_INSTALLED=[[ -d $ASSETS ]] && [[ -d $SCREENLY_CONFIG ]]
-screenlyd=docker image ls | grep screenly
+if [[ -d $SCREENLY_CONFIG ]]; then
+  SCREENLY_INSTALLED="true"
+fi
+screenlyd=$(docker images ls | grep screenly)
 
 
 ###
@@ -147,12 +149,12 @@ copy_file () {
       echo "No positional arguments specified"
   fi
 
-  if ![[ $SOURCE && [[ -d $1 ]] ]] || ![[ $TARGET && [[ -d $1 ]] ]]
+  if [[ ! $SOURCE ]] && [[ ! -d $1 ]] || [[ ! $TARGET ]] && [[ ! -d $1 ]]
   then
       echo "-s and -t must be included" >&2
       exit 1
   fi
-  if ![[ $OWNER && [[ -d $1 ]] ]] || ![[ $GROUP && [[ -d $1 ]] ]]
+  if [[ ! $OWNER ]] && [[ ! -d $1 ]]  || [[ ! $GROUP ]] && [[ ! -d $1 ]]
   then
       echo "-o and -g must be included" >&2
       exit 1
@@ -160,23 +162,23 @@ copy_file () {
 
   str=""
 
-  if [[ $COMMENT && [[ -d $1 ]] ]]
+  if [[ $COMMENT ]] && [[ -d $1 ]] 
   then
       echo "$COMMENT"
   fi
 
   str+="Copying $SOURCE to $TARGET"
   
-  if [[ -z $FORCE]]; then
+  if [[ -z $FORCE ]]; then
     cp -n $SOURCE $TARGET -f
   else 
     cp -n $SOURCE $TARGET
   fi 
-  if [ ! -z $3 ] && [ ! -z $4 ];then 
+  if [[ ! -z $3 ]] && [[ ! -z $4 ]];then 
     chown $GROUP:$OWNER $TARGET
     str+=" as $GROUP:$OWNER"
   fi
-  if [ ! -z $FLAGS ];then 
+  if [[ ! -z $FLAGS ]];then 
     chmod $FLAGS $TARGET
     str+=" with $FLAGS flags"
   fi
@@ -211,7 +213,8 @@ if [ -d "$DIR" ]; then
   
 else
   ###  Control will jump here if $DIR does NOT exists ###
-  echo "Not BerryBoot. Can continue.\nBacking up /boot/config.txt"
+  echo "Not BerryBoot. Can continue.
+  Backing up /boot/config.txt"
   cp /boot/config.txt /boot/config.txt.bak
   regex_replace_infile /boot/config.txt ^framebuffer_depth=[0-9]+$ framebuffer_depth=32 'Make sure we have proper framebuffer depth'
   regex_replace_infile /boot/config.txt ^framebuffer_ignore_alpha=[0-9]+$ framebuffer_ignore_alpha=1 'Fix framebuffer bug'
@@ -233,8 +236,8 @@ if [ -d "$FILE" ]; then
   echo "cdefs.h exist"
 else
   echo "cdefs.h not found."
-  sudo apt-get remove libc6-dev
-  sudo apt-get update && sudo apt get install libc6-dev -y
+  sudo apt-get remove libc6-dev -y 2>&1 > $SCREENLY_LOG
+  sudo apt-get update -y 2>&1 > $SCREENLY_LOG && sudo apt get install libc6-dev -y 2>&1 > $SCREENLY_LOG
 fi
 
 DIR=" /usr/lib/gcc/arm-linux-gnueabihf/4.9/cc1plus"
@@ -242,8 +245,8 @@ if [ -d "$DIR" ]; then
   echo "cc1plus exists"
 else
   echo "cc1plus not found."
-  sudo apt-get remove build-essential
-  sudo apt-get update && sudo apt get install build-essential -y
+  sudo apt-get remove build-essential -y 2>&1 > $SCREENLY_LOG
+  sudo apt-get update -y 2>&1 > $SCREENLY_LOG && sudo apt-get install build-essential -y 2>&1 > $SCREENLY_LOG
 fi
 
 
@@ -261,9 +264,9 @@ apt-get install -y \
   rpi-update \
   sqlite3 \
   systemd \
-  uzbl \ 
+  uzbl \
   x11-xserver-utils \
-  xserver-xorg \
+  xserver-xorg 2>&1 > $SCREENLY_LOG
 
 
 apt-get purge -y 
@@ -278,17 +281,17 @@ apt-get purge -y
 	cups-client \
 	cups-common \
 	cups-daemon \
-	cups-server-common
+	cups-server-common 2>&1 > $SCREENLY_LOG
 
-apt-get autoremove -y
-apt-get dist-upgrade -y
+apt-get autoremove -y 2>&1 > $SCREENLY_LOG
+apt-get dist-upgrade -y 2>&1 > $SCREENLY_LOG
 
 echo "Remove deprecated pip dependencies"
 
-copy_file "rc.local"  "/etc/rc.local" root root 0755 "Copy in rc.local"
-copy_file "01_nodoc"  "/etc/dpkg/dpkg.cfg.d/01_nodoc" root root 0644 "Copy in 01_nodoc"
-copy_file "10-evdev.conf"  "/usr/share/X11/xorg.conf.d/10-evdev.conf" root root 0644 "Copy in evdev"
-copy_file "10-serverflags.conf"  "/usr/share/X11/xorg.conf.d/10-serverflags.conf" root root 0644 "Disable DPMS"
+copy_file -s "rc.local"  -t "/etc/rc.local" -u root -g root -m 0755 -c "Copy in rc.local"
+copy_file -s "01_nodoc"  -t "/etc/dpkg/dpkg.cfg.d/01_nodoc" -u root -g root -m 0644 -c "Copy in 01_nodoc"
+copy_file -s "10-evdev.conf"  -t "/usr/share/X11/xorg.conf.d/10-evdev.conf" -u root -g root -m 0644 -c "Copy in evdev"
+copy_file -s "10-serverflags.conf" -t "/usr/share/X11/xorg.conf.d/10-serverflags.conf" -u root -g root -m 0644 -c "Disable DPMS"
 
 echo "Clear out X11 configs (disables touchpad and other unnecessary things)"
 X11_configs=('50-synaptics.conf' '10-quirks.conf' '50-wacom.conf')
@@ -308,7 +311,7 @@ sudo rm /var/swap -r
     
 if [[-z $SYSTEM_UPGRADE ]]; then
 
-  if [[VERSION_CODENAME=="wheezy"]]; then 
+  if [[ VERSION_CODENAME=="wheezy" ]]; then 
     echo "download rpi-update"
     sudo curl -L --output /usr/bin/rpi-update https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update && sudo chmod +x /usr/bin/rpi-update
     echo "Run kernel upgrade (this can take up to 10 minutes)"  
@@ -330,21 +333,21 @@ do
 done    
     
 #do not force
-copy_file "screenly.conf"  "/home/pi/.screenly/screenly.conf" pi pi 0600 "Copy Screenly default config"
+copy_file -s "screenly.conf" -t "/home/pi/.screenly/screenly.conf" -u pi -g pi -m 0600 -c "Copy Screenly default config"
 
 
 
-copy_file "default_assets.yml"  "/home/pi/.screenly/default_assets.yml" pi pi 0600 "Copy Screenly default assets file"
+copy_file -s "default_assets.yml" -t "/home/pi/.screenly/default_assets.yml" -u pi -g pi -m 0600 -c "Copy Screenly default assets file"
 regex_replace_infile /home/pi/.screenly/screenly.conf '^.*listen.*' '' 'Remove deprecated parameter "listen"'
-copy_file "gtkrc-2.0"  " /home/pi/.gtkrc-2.0" pi pi 0600 "Copy in GTK config"
-copy_file "uzbl-config"  "/home/pi/.config/uzbl/config-screenly" pi pi 0600 "Copy in UZBL config"
+copy_file -s "gtkrc-2.0" -t " /home/pi/.gtkrc-2.0" -u pi -g pi -m 0600 -c "Copy in GTK config"
+copy_file -s "uzbl-config" -t "/home/pi/.config/uzbl/config-screenly" -u pi -g pi -m 0600 -c "Copy in UZBL config"
 
 echo "Install pip dependencies"
 pip install --requirement /home/pi/screenly/requirements/requirements.txt --no-cache-dir --upgrade
 
 
 #do not force
-copy_file "screenly.db"  "/home/pi/.screenly/screenly.db" pi pi 0600 "Create default assets database if does not exists"
+copy_file -s "screenly.db" -t "/home/pi/.screenly/screenly.db" -u pi -g pi -m 0600 -c "Create default assets database if does not exists"
 
 echo "Migrate database" && sudo -u pi python /home/pi/screenly/bin/migrate.py
 
@@ -356,10 +359,10 @@ echo "Download upgrade_screenly.sh from github repository"
   sudo curl -L --output /usr/local/sbin/upgrade_screenly.sh https://raw.githubusercontent.com/Screenly/screenly-ose/master/bin/install.sh && sudo chmod 0700 /usr/local/sbin/upgrade_screenly.sh
 
 
-copy_file "files/screenly_overrides"  "/etc/sudoers.d/screenly_overrides" root root 0440 "Copy screenly_overrides"
-copy_file "files/screenly_usb_assets.sh"  "/usr/local/bin/screenly_usb_assets.sh" root root 0755 "Copy screenly_usb_assets.sh"
-copy_file "50-autoplay.rules"  "/etc/udev/rules.d/50-autoplay.rules" root root 0644 "Installs autoplay udev rule"
-copy_file "/lib/systemd/system/systemd-udevd.service"  "/etc/systemd/system/systemd-udevd.service" root root 0740 "Copy systemd-udevd service"
+copy_file -s "files/screenly_overrides" -t "/etc/sudoers.d/screenly_overrides" -u root -g root -m 0440 -c "Copy screenly_overrides"
+copy_file -s "files/screenly_usb_assets.sh" -t "/usr/local/bin/screenly_usb_assets.sh" -u root -g root -m 0755 -c "Copy screenly_usb_assets.sh"
+copy_file -s "50-autoplay.rules" -t "/etc/udev/rules.d/50-autoplay.rules" -u root -g root -m 0644 -c "Installs autoplay udev rule"
+copy_file -s "/lib/systemd/system/systemd-udevd.service" -t "/etc/systemd/system/systemd-udevd.service" -u root -g root -m 0740 -c "Copy systemd-udevd service"
 
 regex_replace_infile /etc/systemd/system/systemd-udevd.service '^MountFlags=.+$' 'MountFlags=shared' 'Configure systemd-udevd service'
 
@@ -371,8 +374,8 @@ do
   sudo cp "./files/$sdu" "/etc/systemd/system/$sdu"
 done
 
-copy_file "plymouth-quit-wait.service"  "/lib/systemd/system/plymouth-quit-wait.service" root root 0644 "Copy plymouth-quit-wait.service"
-copy_file "plymouth-quit.service"  "/lib/systemd/system/plymouth-quit.service" root root 0644 "Copy plymouth-quit.service"
+copy_file -s "plymouth-quit-wait.service" -t "/lib/systemd/system/plymouth-quit-wait.service" -u root -g root -m 0644 -c "Copy plymouth-quit-wait.service"
+copy_file -s "plymouth-quit.service" -t "/lib/systemd/system/plymouth-quit.service" -u root -g root -m 0644 -c "Copy plymouth-quit.service"
 
 echo "Enable Screenly systemd services"
 for sdu in "${system_d_units[@]}"
@@ -386,7 +389,7 @@ done
     
 echo "Check if screenly-network-manager files exist"    
 FILE="/usr/sbin/screenly_net_mgr.py"
-if [ -d "$FILE" ]; then
+if [[ -d "$FILE" ]]; then
   ### Take action if $FILE exists ###
 	echo "Detected screenly-network-manager files."
 	systemctl disable screenly-net-manager.service
@@ -441,8 +444,8 @@ if [[-z $MANAGE_NETWORK=="true" ]]; then
   if [[ ! -z $resin_wifi_version_file_exist ]]; then
     if [[ $ansible_distribution_major_version>=9 ]]; then
       sudo tar -xfv /home/pi/resin-wifi-connect.tar.gz /home/pi && chown pi:pi /home/pi/resin-wifi-connect -R
-      copy_file "/home/pi/ui/"  "/usr/local/share/wifi-connect/ui" pi pi 0755 "Copy 'ui' folder"
-      copy_file "/home/pi/wifi-connect"  "/usr/local/sbin" pi pi 0755 "Copy wifi-connect file"
+      copy_file -s "/home/pi/ui/" -t "/usr/local/share/wifi-connect/ui" -u pi -g pi -m 0755 -c "Copy 'ui' folder"
+      copy_file -s "/home/pi/wifi-connect" -t "/usr/local/sbin" -u pi -g pi -m 0755 -c "Copy wifi-connect file"
       echo "Touch resin-wifi-connect version file" &&  touch "/usr/local/share/wifi-connect/ui/$resin_wifi_connect_version"
       echo "Remove unarchive files"
       sudo rm "/home/pi/wifi-connect" -r 
@@ -452,7 +455,7 @@ if [[-z $MANAGE_NETWORK=="true" ]]; then
   fi
 fi
 
-copy_file "wifi-connect.service"  "/etc/systemd/system/wifi-connect.service" root root 0644 "Copy wifi-connect systemd unit"
+copy_file -s "wifi-connect.service" -t "/etc/systemd/system/wifi-connect.service" -u root -g root -m 0644 -c "Copy wifi-connect systemd unit"
 echo "Enable wifi-connect systemd service" && systemctl enable wifi-connect.service
 echo "Touch initialized file" && touch "/home/pi/.screenly/initialized"
 
@@ -465,8 +468,8 @@ if [[VERSION_CODENAME=="jessie"]]; then
 # If Jessie
   if [[ $ansible_distribution_major_version<=7 ]]; then
     sudo apt install -y fbi
-    copy_file "splashscreen.png"  "/etc/splashscreen.png" root root 0644 "Copies in splash screen"
-    copy_file "asplashscreen"  " /etc/init.d/asplashscreen" root root 0755 "Copies in rc script"
+    copy_file -s "splashscreen.png" -t "/etc/splashscreen.png" -u root -g root -m 0644 -c "Copies in splash screen"
+    copy_file -s "asplashscreen" -t "/etc/init.d/asplashscreen" -u root -g root -m 0755 -c "Copies in rc script"
     echo "Enables asplashscreen"
     if [[ !-d "/etc/rcS.d/S01asplashscreen" ]]; then
       update-rc.d asplashscreen defaults
@@ -503,7 +506,7 @@ echo "Install nginx-light"
 sudo apt-get install nginx-light -y
 echo "Cleans up default config"
 sudo rm /etc/nginx/sites-enabled/default
-copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
+copy_file -s "nginx.conf" -t "/etc/nginx/sites-enabled/screenly.conf" -u root -g root -m 0644 -c "Installs nginx config"
 regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '' 'Modifies screenly-web service to only listen on localhost'
   
     
@@ -515,10 +518,10 @@ if [[ -z $ENABLE_SSL ]]; then
     sudo apt-get install nginx-light -y
     echo "Cleans up default config"
     sudo rm /etc/nginx/sites-enabled/default  
-    copy_file "nginx.conf"  "/etc/nginx/sites-enabled/screenly.conf" root root 0644 "Installs nginx config"
+    copy_file -s "nginx.conf" -t "/etc/nginx/sites-enabled/screenly.conf" -u root -g root -m 0644 -c "Installs nginx config"
     service nginx restart
-    copy_file "files/screenly.crt"  "/etc/ssl/screenly.crt" root root 0600 "Installs self-signed certificates / crt"
-    copy_file "files/screenly.key"  "/etc/ssl/screenly.key" root root 0600 "Installs self-signed certificates / key"
+    copy_file -s "files/screenly.crt" -t "/etc/ssl/screenly.crt" -u root -g root -m 0600 -c "Installs self-signed certificates / crt"
+    copy_file -s "files/screenly.key" -t "/etc/ssl/screenly.key" -u root -g root -m 0600 -c "Installs self-signed certificates / key"
     regex_replace_infile "/home/pi/.screenly/screenly.conf" '^.*use_ssl.*' 'use_ssl = True' 'Turns on the ssl mode'
     regex_replace_infile "/etc/systemd/system/screenly-web.service"  '^.*LISTEN.*' '' 'Modifies screenly-web service to only listen on localhost'
     sudo systemctl daemon-reload
@@ -527,5 +530,5 @@ if [[ -z $ENABLE_SSL ]]; then
   fi
 fi    
 ###  tools
-copy_file "files/ngrok"  "/usr/local/bin/" root root 0755 "Copy ngrok binary"
-copy_file "files/nginx.conf"  "/etc/nginx/sites-enabled/screenly_assets.conf" root root 0644 "Installs nginx config"
+copy_file -s "files/ngrok" -t "/usr/local/bin/" -u root -g root -m 0755 -c "Copy ngrok binary"
+copy_file -s "files/nginx.conf" -t "/etc/nginx/sites-enabled/screenly_assets.conf" -u root -g root -m 0644 -c "Installs nginx config"
