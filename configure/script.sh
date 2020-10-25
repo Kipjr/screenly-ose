@@ -155,7 +155,7 @@ copy_file () {
       echo "-s and -t must be included" >&2
       exit 1
   fi
-  if [[ ! $OWNER ]] && [[ ! -d $OWNER ]]  || [[ ! $GROUP ]] && [[ ! -d $GROUP ]]
+  if [[ ! $OWNER ]] && [[ ! $GROUP ]] 
   then
       echo "-o and -g must be included" >&2
       exit 1
