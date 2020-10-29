@@ -249,10 +249,10 @@ role_system () {
     libssl-dev \
     matchbox \
     omxplayer \
-    python-dev \
-    python-gobject \
-    python-netifaces \
-    python-simplejson \
+    python3-dev \
+    python3-gobject \
+    python3-netifaces \
+    python3-simplejson \
     redis-server \
     rpi-update \
     sqlite3 \
@@ -263,6 +263,7 @@ role_system () {
 
 
   apt-get purge -y 
+    python \
     visor \
     lightdm \
     lightdm-gtk-greeter \
@@ -337,7 +338,7 @@ role_screenly () {
   copy_file -s "uzbl-config" -t "/home/pi/.config/uzbl/config-screenly" -u pi -g pi -m 0600 -c "Copy in UZBL config"
 
   echo "Install pip dependencies"
-  pip install --requirement /home/pi/screenly/requirements/requirements.txt --no-cache-dir --upgrade
+  pip3 install --requirement /home/pi/screenly/requirements/requirements.txt --no-cache-dir --upgrade
 
 
   #do not force

@@ -31,13 +31,13 @@ date_h = datetime.datetime(2013, 1, 20, 10, 59)
 date_d = datetime.datetime(2013, 1, 21, 00, 00)
 
 asset_w = {
-    'mimetype': u'web',
-    'asset_id': u'4c8dbce552edb5812d3a866cfe5f159e',
-    'name': u'いろはにほへど',
-    'uri': u'http://www.wireload.net',
+    'mimetype': 'web',
+    'asset_id': '4c8dbce552edb5812d3a866cfe5f159e',
+    'name': 'いろはにほへど',
+    'uri': 'http://www.wireload.net',
     'start_date': date_a,
     'end_date': date_b,
-    'duration': u'5',
+    'duration': '5',
     'is_enabled': 1,
     'nocache': 0,
     'is_processing': 0,
@@ -46,17 +46,17 @@ asset_w = {
 }
 
 asset_w_diff = {
-    'name': u'Tôi có thể ăn thủy tinh mà không hại gì.'
+    'name': 'Tôi có thể ăn thủy tinh mà không hại gì.'
 }
 
 asset_x = {
-    'mimetype': u'web',
-    'asset_id': u'4c8dbce552edb5812d3a866cfe5f159d',
-    'name': u'WireLoad',
-    'uri': u'http://www.wireload.net',
+    'mimetype': 'web',
+    'asset_id': '4c8dbce552edb5812d3a866cfe5f159d',
+    'name': 'WireLoad',
+    'uri': 'http://www.wireload.net',
     'start_date': date_a,
     'end_date': date_b,
-    'duration': u'5',
+    'duration': '5',
     'is_enabled': 1,
     'nocache': 0,
     'is_processing': 0,
@@ -65,17 +65,17 @@ asset_x = {
 }
 
 asset_x_diff = {
-    'duration': u'10'
+    'duration': '10'
 }
 
 asset_y = {
-    'mimetype': u'image',
-    'asset_id': u'7e978f8c1204a6f70770a1eb54a76e9b',
-    'name': u'Google',
-    'uri': u'https://www.google.com/images/srpr/logo3w.png',
+    'mimetype': 'image',
+    'asset_id': '7e978f8c1204a6f70770a1eb54a76e9b',
+    'name': 'Google',
+    'uri': 'https://www.google.com/images/srpr/logo3w.png',
     'start_date': date_c,
     'end_date': date_d,
-    'duration': u'6',
+    'duration': '6',
     'is_enabled': 1,
     'nocache': 0,
     'is_processing': 0,
@@ -83,15 +83,15 @@ asset_y = {
     'skip_asset_check': 0
 }
 asset_y_diff = {
-    'duration': u'324'
+    'duration': '324'
 }
 asset_z = {
-    'mimetype': u'image',
-    'asset_id': u'9722cd9c45e44dc9b23521be8132b38f',
-    'name': u'url test',
+    'mimetype': 'image',
+    'asset_id': '9722cd9c45e44dc9b23521be8132b38f',
+    'name': 'url test',
     'start_date': date_c,
     'end_date': date_d,
-    'duration': u'1',
+    'duration': '1',
     'is_enabled': 1,
     'nocache': 0,
     'is_processing': 0,
@@ -209,7 +209,7 @@ class DBHelperTest(unittest.TestCase):
 
         fetched = assets_helper.read(self.conn)
 
-        self.assertEquals(
+        self.assertEqual(
             [(0, asset_y['asset_id']),
              (1, asset_x['asset_id']),
              (2, asset_z['asset_id']),
@@ -224,29 +224,29 @@ class DBHelperTest(unittest.TestCase):
 
         fetched = assets_helper.read(self.conn)
 
-        self.assertEquals([0, 0, 0], [asset['play_order'] for asset in fetched])
+        self.assertEqual([0, 0, 0], [asset['play_order'] for asset in fetched])
 
     def test_update_asset(self):
         asset_x_ = assets_helper.create(self.conn, asset_x)
         asset_x_copy = asset_x_.copy()
         data = {'name': 'New name', 'mimetype': 'should not setted', 'empty': 'non exists field'}
 
-        self.assertEquals(asset_x_, asset_x_copy)
+        self.assertEqual(asset_x_, asset_x_copy)
 
         server.update_asset(asset_x_copy, data)
         asset_x_copy = assets_helper.update(self.conn, asset_x_copy.get('id'), asset_x_copy)
 
-        self.assertEquals(asset_x_copy,
+        self.assertEqual(asset_x_copy,
                           {'is_enabled': 1,
                            'asset_id': None,
                            'end_date': datetime.datetime(2013, 1, 19, 23, 59),
                            'is_active': 0,
-                           'duration': u'5',
+                           'duration': '5',
                            'is_processing': 0,
-                           'mimetype': u'web',
+                           'mimetype': 'web',
                            'name': 'New name',
                            'nocache': 0,
-                           'uri': u'http://www.wireload.net',
+                           'uri': 'http://www.wireload.net',
                            'skip_asset_check': 0,
                            'play_order': 1,
                            'start_date': datetime.datetime(2013, 1, 16, 0, 0)

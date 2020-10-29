@@ -38,7 +38,7 @@ class TestClenup(CeleryTasksTestCase):
 
     def test_cleanup(self):
         cleanup.apply()
-        tmp_files = filter(lambda x: x.endswith('.tmp'), listdir(path.join(getenv('HOME'), 'screenly_assets')))
+        tmp_files = [x for x in listdir(path.join(getenv('HOME'), 'screenly_assets')) if x.endswith('.tmp')]
         self.assertEqual(len(tmp_files), 0)
 
 
